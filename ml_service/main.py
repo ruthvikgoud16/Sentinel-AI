@@ -97,8 +97,9 @@ def load_models_and_cache():
         for idx, node in enumerate(nodes):
             mule_prob = float(gnn_probs[idx])
             anomaly_score = float(iso_scores[idx])
-            # Combined score: 30% Anomaly detection, 70% GraphSAGE probability
-            combined_score = 0.3 * anomaly_score + 0.7 * mule_prob
+            # Final score = GNN mule_probability only.
+            # IF anomaly_score retained for observability but not blended.
+            combined_score = mule_prob
             
             SCORES_CACHE[node] = {
                 'anomaly_score': anomaly_score,
@@ -137,7 +138,7 @@ def get_ml_score(request: ScoreRequest):
     # Anomaly pre-filter check
     anomaly_score = max(0.0, min(1.0, rule_score_normalized + np.random.uniform(-0.1, 0.05)))
     
-    combined_score = 0.3 * anomaly_score + 0.7 * mule_prob
+    combined_score = mule_prob
     
     return {
         'account_id': acc_id,
