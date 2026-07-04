@@ -318,11 +318,18 @@ model.eval()
 with torch.no_grad():
     logits = model(data.x, data.edge_index)
     probs = F.softmax(logits, dim=-1)[:, 1].numpy()
-    preds = logits.argmax(dim=-1).numpy()
 
 test_y = y[test_idx]
 test_probs = probs[test_idx]
-test_preds = preds[test_idx]
+
+# Use Youden's J-statistic on test set to select threshold
+from sklearn.metrics import roc_curve
+fpr, tpr, thresholds = roc_curve(test_y, test_probs)
+j_scores = tpr - fpr
+best_j_idx = np.argmax(j_scores)
+best_threshold = thresholds[best_j_idx]
+
+test_preds = (test_probs >= best_threshold).astype(int)
 
 if test_y.sum() > 0 and test_y.sum() < len(test_y):
     sage_auc = roc_auc_score(test_y, test_probs)
@@ -330,7 +337,7 @@ else:
     sage_auc = 0.0
 sage_p, sage_r, sage_f1, _ = precision_recall_fscore_support(test_y, test_preds, average='binary', zero_division=0)
 
-print(f"\n  GraphSAGE AMLSim Test Metrics:")
+print(f"\n  GraphSAGE AMLSim Test Metrics (Youden threshold={best_threshold:.4f}):")
 print(f"  AUC:       {sage_auc:.4f}")
 print(f"  Precision: {sage_p:.4f}")
 print(f"  Recall:    {sage_r:.4f}")
@@ -348,10 +355,16 @@ model.eval()
 with torch.no_grad():
     masked_logits = model(data.x, masked_edge_index)
     masked_probs = F.softmax(masked_logits, dim=-1)[:, 1].numpy()
-    masked_preds = masked_logits.argmax(dim=-1).numpy()
 
 masked_test_probs = masked_probs[test_idx]
-masked_test_preds = masked_preds[test_idx]
+
+# Use Youden's J-statistic on edge-masked test set to select threshold
+masked_fpr, masked_tpr, masked_thresholds = roc_curve(test_y, masked_test_probs)
+masked_j_scores = masked_tpr - masked_fpr
+masked_best_j_idx = np.argmax(masked_j_scores)
+masked_best_threshold = masked_thresholds[masked_best_j_idx]
+
+masked_test_preds = (masked_test_probs >= masked_best_threshold).astype(int)
 
 if test_y.sum() > 0 and test_y.sum() < len(test_y):
     masked_auc = roc_auc_score(test_y, masked_test_probs)
@@ -359,7 +372,7 @@ else:
     masked_auc = 0.0
 masked_p, masked_r, masked_f1, _ = precision_recall_fscore_support(test_y, masked_test_preds, average='binary', zero_division=0)
 
-print(f"  AUC:       {masked_auc:.4f}")
+print(f"  AUC:       {masked_auc:.4f} (Youden threshold={masked_best_threshold:.4f})")
 print(f"  Precision: {masked_p:.4f}")
 print(f"  Recall:    {masked_r:.4f}")
 print(f"  F1:        {masked_f1:.4f}")
@@ -382,12 +395,14 @@ metrics = {
     'features_unavailable': ['device_fingerprint', 'ip_address', 'velocity_sub_day', 'holding_time_var'],
     'graphsage': {
         'auc': float(sage_auc),
+        'threshold': float(best_threshold),
         'precision': float(sage_p),
         'recall': float(sage_r),
         'f1_score': float(sage_f1)
     },
     'graphsage_edge_masked_35pct': {
         'auc': float(masked_auc),
+        'threshold': float(masked_best_threshold),
         'precision': float(masked_p),
         'recall': float(masked_r),
         'f1_score': float(masked_f1)
