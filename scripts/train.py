@@ -247,6 +247,30 @@ def main():
     sage_auc = roc_auc_score(y[test_idx], probs[test_idx])
     print(f"GraphSAGE Test metrics - AUC: {sage_auc:.4f}, F1: {sage_f1:.4f}")
     
+    # --- EDGE-MASKING ROBUSTNESS EVALUATION (35% drop) ---
+    # Simulates incomplete network visibility: what if we only observe 65% of the
+    # real transaction graph? This is a realistic scenario in production where the
+    # bank may not have full cross-institutional visibility.
+    print("\n--- Edge-Masking Robustness Test (35% edges dropped) ---")
+    torch.manual_seed(99)  # Fixed seed for reproducibility
+    num_edges_total = edge_index.shape[1]
+    keep_ratio = 0.65
+    num_keep = int(num_edges_total * keep_ratio)
+    perm = torch.randperm(num_edges_total)[:num_keep]
+    masked_edge_index = edge_index[:, perm]
+    
+    model.eval()
+    with torch.no_grad():
+        masked_logits = model(data.x, masked_edge_index)
+        masked_probs = F.softmax(masked_logits, dim=-1)[:, 1].numpy()
+        masked_preds = masked_logits.argmax(dim=-1).numpy()
+    
+    masked_p, masked_r, masked_f1, _ = precision_recall_fscore_support(
+        y[test_idx], masked_preds[test_idx], average='binary')
+    masked_auc = roc_auc_score(y[test_idx], masked_probs[test_idx])
+    print(f"GraphSAGE (35% edge-masked) Test metrics - AUC: {masked_auc:.4f}, "
+          f"Precision: {masked_p:.4f}, Recall: {masked_r:.4f}, F1: {masked_f1:.4f}")
+    
     # Save metrics JSON
     os.makedirs('results', exist_ok=True)
     metrics = {
@@ -261,6 +285,15 @@ def main():
             'precision': float(sage_p),
             'recall': float(sage_r),
             'f1_score': float(sage_f1)
+        },
+        'graphsage_edge_masked_35pct': {
+            'auc': float(masked_auc),
+            'precision': float(masked_p),
+            'recall': float(masked_r),
+            'f1_score': float(masked_f1),
+            'edges_dropped_pct': 35.0,
+            'edges_kept': int(num_keep),
+            'edges_total': int(num_edges_total)
         }
     }
     

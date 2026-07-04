@@ -1,14 +1,23 @@
 {
     "isolation_forest": {
-        "auc": 0.9789695057833859,
-        "precision": 0.49473684210526314,
-        "recall": 0.9591836734693877,
-        "f1_score": 0.6527777777777778
+        "auc": 0.6231961147086031,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1_score": 0.0
     },
     "graphsage": {
-        "auc": 1.0,
+        "auc": 0.9999306197964847,
         "precision": 1.0,
-        "recall": 1.0,
-        "f1_score": 1.0
+        "recall": 0.9347826086956522,
+        "f1_score": 0.9662921348314607
+    },
+    "graphsage_edge_masked_35pct": {
+        "auc": 0.9673219241443108,
+        "precision": 0.926829268292683,
+        "recall": 0.8260869565217391,
+        "f1_score": 0.8735632183908046,
+        "edges_dropped_pct": 35.0,
+        "edges_kept": 25886,
+        "edges_total": 39826
     }
 }

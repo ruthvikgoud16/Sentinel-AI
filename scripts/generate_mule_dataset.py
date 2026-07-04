@@ -197,9 +197,54 @@ def main():
     for fr in fast_routers:
         nodes_df.loc[fr, 'type'] = 'fast_router'
         
-    print(f"Injecting background noise: {len(normal_accounts)} normal nodes with {num_merchants} merchants and {num_fast_routers} fast routers...")
-    
     start_date = datetime(2026, 7, 1)
+    
+    # --- LEGITIMATE MULTI-HOP CHAINS (topological hard negatives for GNN) ---
+    # These mimic the chain structure of mule rings but are entirely legitimate.
+    # Without these, the GNN can trivially learn "any multi-hop linear chain = mule".
+    legit_chain_types = [
+        ('payroll',    3, 5, (2000, 8000),  (3600, 86400)),   # Employer→Processor→Employee→Landlord
+        ('supply',     3, 5, (5000, 25000), (7200, 172800)),  # Buyer→Escrow→Supplier→Shipper
+        ('remittance', 3, 4, (500, 3000),   (1800, 43200)),   # Sender→Exchange→Correspondent→Beneficiary
+    ]
+    num_legit_chains = 200  # Total chains across all types
+    legit_chain_pool = [acc for acc in normal_accounts if nodes_df.loc[acc, 'type'] == 'normal']
+    
+    chains_per_type = num_legit_chains // len(legit_chain_types)
+    for chain_type, min_hops, max_hops, amt_range, delay_range in legit_chain_types:
+        for ch_idx in range(chains_per_type):
+            chain_len = random.randint(min_hops, max_hops)
+            if len(legit_chain_pool) < chain_len:
+                break
+            chain_nodes = random.sample(legit_chain_pool, chain_len)
+            
+            # Tag these nodes with a descriptive type but keep is_mule=0
+            for cn in chain_nodes:
+                nodes_df.loc[cn, 'type'] = f'legit_{chain_type}'
+            
+            # Build the chain edges with realistic timing
+            chain_base_time = start_date + timedelta(
+                days=random.uniform(0, 3), hours=random.uniform(0, 24)
+            )
+            chain_amount = random.randint(*amt_range)
+            
+            for hop in range(len(chain_nodes) - 1):
+                hop_delay = random.randint(*delay_range)
+                # Legitimate chains retain 95-100% of funds (fees are small)
+                hop_amount = int(chain_amount * random.uniform(0.95, 1.0))
+                chain_base_time += timedelta(seconds=hop_delay)
+                
+                tx_id = len(edges_data) + 1
+                edges_data.append({
+                    'edge_id': f"tx-{tx_id}",
+                    'from_account': chain_nodes[hop],
+                    'to_account': chain_nodes[hop + 1],
+                    'amount': hop_amount,
+                    'channel': random.choice(['ACH', 'WIRE']),
+                    'timestamp': chain_base_time.isoformat()
+                })
+    
+    print(f"Injecting background noise: {len(normal_accounts)} normal nodes with {num_merchants} merchants, {num_fast_routers} fast routers, and {num_legit_chains} legitimate multi-hop chains...")
     
     needed_txs = 20000 - len(edges_data)
     tx_idx = 0
