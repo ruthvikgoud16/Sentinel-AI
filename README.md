@@ -6,6 +6,8 @@
 
 **Real-time money mule detection • Gemini-powered forensic copilot • Instant SAR generation**
 
+🚀 **Live Vercel Demo:** [sentinel-ai-detect.vercel.app](https://sentinel-ai-detect.vercel.app)
+
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Gemini](https://img.shields.io/badge/Gemini_AI-2.5_Flash-4285F4?logo=google&logoColor=white)](https://ai.google.dev)
@@ -196,7 +198,7 @@ During development, our model hit a suspicious **100% AUC**. Instead of shipping
 ### ⚠️ Honest Limitations
 
 - The F1 score on real benchmark data is **30.74%** — this means human-in-the-loop investigation remains essential
-- The Vercel deployment uses **client-side mock scoring** (no Python runtime available on Vercel)
+- The Vercel deployment serves **pre-computed GraphSAGE ML scores** (served instantly from an embedded JSON database to bypass PyTorch serverless package constraints)
 - The GCP production architecture is **documented but not deployed**
 
 > Full validation story: [`docs/synthetic_vs_amlsim_validation.md`](docs/synthetic_vs_amlsim_validation.md)
