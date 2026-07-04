@@ -39,9 +39,9 @@ export async function POST(req: Request) {
     const anomaly_var = (hash % 11) - 6; // range -6 to +4
     const gnn_var = (hash % 5) - 2; // range -2 to +2
     
-    const combined_ml_score = Math.max(0, Math.min(100, val + variance));
-    const anomaly_score = Math.max(0, Math.min(100, val + anomaly_var));
     const mule_probability = Math.max(0, Math.min(100, val + gnn_var));
+    const combined_ml_score = mule_probability;
+    const anomaly_score = Math.max(0, Math.min(100, val + anomaly_var));
 
     return NextResponse.json({
       anomaly_score,
