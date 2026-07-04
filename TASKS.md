@@ -67,7 +67,7 @@ This task board outlines the bare minimum steps required to build Sentinel AI fo
 
 ---
 
-## Phase 7: Demo Visual Polish (P0) `[ ]`
+## Phase 7: Demo Visual Polish (P0) `[x]`
 - [x] Node Visual Styling: Upgrade `vis-network` nodes to use circular avatars and custom neon shadows representing roles (Victim=Green, Mule=Orange, Target=Red). `[Est: 15 min]`
 - [x] Animated Edge Flows: Add animated dashing to transaction edges to visually direct the money flow. `[Est: 10 min]`
 - [x] Custom Info Inspector: Create an HTML absolute-positioned card that displays node metadata on selection (replacing plain browser tooltips). `[Est: 20 min]`
@@ -77,7 +77,7 @@ This task board outlines the bare minimum steps required to build Sentinel AI fo
 - [x] Live Mitigation Timeline Log: Dynamically insert a "Mitigation Executed" event card to the timeline on Freeze action. `[Est: 10 min]`
 - [x] Canvas Metrics Overlay: Overlay top graph stats (e.g., "Velocity: 180s", "Shared Devices: 1") on the graph canvas. `[Est: 10 min]`
 - [x] Alert Queue Pulse: Add a glowing red indicator ring around the suspect card in the alert sidebar. `[Est: 10 min]`
-- [ ] Glassmorphism Container styling: Apply refined backdrop-blur styles to the dashboard containers. `[Est: 15 min]`
+- [x] Glassmorphism Container styling: Apply refined backdrop-blur styles to the dashboard containers. `[Est: 15 min]`
 
 ---
 
