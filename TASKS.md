@@ -25,13 +25,13 @@ This task board outlines the bare minimum steps required to build Sentinel AI fo
 
 ---
 
-## Phase 3: Frontend Dashboard UI `[ ]`
-- [ ] Design a premium layout with a dark color scheme:
-  - [ ] Header: "Sentinel AI" logo, status badge ("1 Active Critical Alert"), connection indicators.
-  - [ ] Sidebar: Preloaded list displaying exactly one active critical alert card (`alert-1042`).
-- [ ] Core Split Pane Container:
-  - [ ] Left column: Visual network canvas + vertical timeline feed.
-  - [ ] Right column: Customer metadata card + Copilot chat drawer.
+## Phase 3: Frontend Dashboard UI `[x]`
+- [x] Design a premium layout with a dark color scheme:
+  - [x] Header: "Sentinel AI" logo, status badge ("1 Active Critical Alert"), connection indicators.
+  - [x] Sidebar: Preloaded list displaying exactly one active critical alert card (`alert-1042`).
+- [x] Core Split Pane Container:
+  - [x] Left column: Visual network canvas + vertical timeline feed.
+  - [x] Right column: Customer metadata card + Copilot chat drawer.
 
 ---
 
