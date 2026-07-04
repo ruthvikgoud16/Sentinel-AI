@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { ROMANCE_SCAM_SCENARIO, DemoScenario } from '@/lib/mockData';
 import MoneyFlowGraph from '@/components/MoneyFlowGraph';
+import { runDetectionEngine } from '@/lib/detectionEngine';
 
 export default function Home() {
   // Demo interactive state
@@ -27,10 +28,25 @@ export default function Home() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isFrozen, setIsFrozen] = useState<boolean>(false);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [isScanning, setIsScanning] = useState<boolean>(false);
   const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'model'; content: string }>>([]);
   const [chatInput, setChatInput] = useState<string>('');
 
+  const handleRunScan = () => {
+    setIsScanning(true);
+    setTimeout(() => {
+      setIsScanning(false);
+    }, 1000);
+  };
+
   const currentAlert = scenario.alert;
+
+  const detectionResult = runDetectionEngine(
+    currentAlert.targetAccountId,
+    scenario.graph.nodes,
+    scenario.graph.edges,
+    scenario.timeline
+  );
 
   // Simple resolution freeze trigger
   const handleFreeze = () => {
@@ -233,11 +249,56 @@ export default function Home() {
             <div className="absolute top-4 left-4 z-10 flex flex-col space-y-2">
               <div className="bg-slate-900/90 border border-slate-800 backdrop-blur-md px-3 py-2 rounded-lg shadow-xl">
                 <span className="block text-[9px] font-mono text-slate-400 uppercase">Mule Risk Factor</span>
-                <span className="text-sm font-bold text-rose-500">94/100 (CRITICAL RISK)</span>
+                <span className="text-sm font-bold text-rose-500">{detectionResult.riskScore}/100 ({detectionResult.riskScore >= 70 ? 'CRITICAL RISK' : 'LOW RISK'})</span>
               </div>
               <div className="bg-slate-900/90 border border-slate-800 backdrop-blur-md px-3 py-2 rounded-lg shadow-xl flex items-center space-x-2">
                 <div className="h-2 w-2 rounded-full bg-rose-500 animate-ping" />
                 <span className="text-xs text-slate-200 font-mono">Interactive Network Loaded</span>
+              </div>
+            </div>
+
+            {/* Threat Diagnostics Scan Overlay (Explainable Detection Engine) */}
+            <div className="absolute top-4 right-4 z-10 w-72 bg-slate-900/95 border border-slate-800/80 backdrop-blur-md p-3.5 rounded-xl shadow-2xl flex flex-col max-h-[90%] overflow-y-auto">
+              <span className="text-[10px] font-bold text-indigo-400 font-mono uppercase tracking-wider mb-2.5 flex items-center space-x-1.5 border-b border-slate-800 pb-1.5">
+                <Activity className="h-3 w-3 text-indigo-400 animate-pulse" />
+                <span>Threat Diagnostic Scan</span>
+              </span>
+              <div className="space-y-2 flex-1">
+                {isScanning ? (
+                  <div className="flex flex-col items-center justify-center py-16 space-y-3">
+                    <div className="h-7 w-7 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+                    <span className="text-[10px] text-indigo-400 font-mono animate-pulse">Evaluating ledger rules...</span>
+                  </div>
+                ) : (
+                  <>
+                    {detectionResult.triggeredSignals.map((sig) => (
+                      <div key={sig.id} className="flex flex-col text-[11px] border-b border-slate-800/30 pb-2 last:border-b-0 last:pb-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-305 font-medium">{sig.name}</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold font-mono ${
+                            sig.triggered 
+                              ? 'bg-rose-500/10 text-rose-450 border border-rose-500/20' 
+                              : 'bg-slate-950 text-slate-500 border border-slate-800'
+                          }`}>
+                            {sig.triggered ? 'TRIGGERED' : 'SAFE'}
+                          </span>
+                        </div>
+                        {sig.triggered && (
+                          <p className="text-[9px] text-slate-450 mt-1 leading-relaxed bg-rose-950/10 p-1.5 rounded border border-rose-950/20 font-mono">
+                            {sig.evidence}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                    <button 
+                      onClick={handleRunScan}
+                      disabled={isScanning}
+                      className="w-full mt-2 text-[9px] py-1.5 px-2 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-400 font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer text-center"
+                    >
+                      Re-run Threat Scan
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
