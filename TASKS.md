@@ -16,12 +16,12 @@ This task board outlines the bare minimum steps required to build Sentinel AI fo
 
 ---
 
-## Phase 2: Backend Gemini Route `[ ]`
-- [ ] Build the Copilot API endpoint:
-  - [ ] Create `src/app/api/chat/route.ts`
-  - [ ] Accept prompt and structured context object
-  - [ ] Compose system instructions: "Act as an expert AML compliance investigator. Analyze the transaction graph context and provide concise evidence and narrative drafts."
-  - [ ] Fetch response from Gemini API and return as JSON stream or text.
+## Phase 2: Backend Gemini Route `[x]`
+- [x] Build the Copilot API endpoint:
+  - [x] Create `src/app/api/chat/route.ts`
+  - [x] Accept prompt and structured context object
+  - [x] Compose system instructions: "Act as an expert AML compliance investigator. Analyze the transaction graph context and provide concise evidence and narrative drafts."
+  - [x] Fetch response from Gemini API and return as JSON stream or text.
 
 ---
 
