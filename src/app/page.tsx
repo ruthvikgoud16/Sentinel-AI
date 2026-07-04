@@ -70,6 +70,13 @@ export default function Home() {
 
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  const [mlScoreData, setMlScoreData] = useState<{
+    anomaly_score: number;
+    mule_probability: number;
+    combined_ml_score: number;
+  } | null>(null);
+  const [isLoadingMlScore, setIsLoadingMlScore] = useState<boolean>(false);
+
   const currentAlert = scenario.alert;
   const isFrozen = frozenAlerts[selectedAlertId];
   const chatMessages = chatHistories[selectedAlertId] || [];
@@ -82,6 +89,33 @@ export default function Home() {
     scenario.graph.edges,
     scenario.timeline
   );
+
+  React.useEffect(() => {
+    const fetchMlScore = async () => {
+      setIsLoadingMlScore(true);
+      try {
+        const response = await fetch('/api/ml-score', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            accountId: currentAlert.targetAccountId,
+            ruleScore: detectionResult.riskScore
+          })
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setMlScoreData(data);
+        }
+      } catch (err) {
+        console.error("Error fetching ML score:", err);
+      } finally {
+        setIsLoadingMlScore(false);
+      }
+    };
+    fetchMlScore();
+  }, [selectedAlertId, currentAlert.targetAccountId, detectionResult.riskScore]);
 
   // Filter queue alerts
   const filteredAlerts = ALERTS_LIST.filter(alert => 
@@ -442,12 +476,33 @@ export default function Home() {
                     <span>Created: {new Date(currentAlert.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
-                <div className="bg-[#060b26]/80 border border-white/10 rounded-[24px] p-6 flex flex-col items-center justify-center text-center shadow-2xl min-w-[200px]">
-                  <span className="text-[9px] font-bold text-[#a0aec0] font-mono uppercase tracking-wider">Mule Risk Index</span>
-                  <span className="text-4xl font-extrabold text-rose-500 mt-2">{detectionResult.riskScore}%</span>
-                  <span className="text-[9px] px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-455 border border-rose-500/20 font-bold font-mono uppercase mt-2.5 tracking-wider animate-pulse">
-                    CRITICAL RISK
-                  </span>
+                <div className="flex items-stretch space-x-3">
+                  {/* Score 1: Rule-Based */}
+                  <div className="bg-[#060b26]/80 border border-white/10 rounded-[20px] p-4 flex flex-col items-center justify-center text-center shadow-2xl min-w-[140px]">
+                    <span className="text-[9px] font-bold text-[#a0aec0] font-mono uppercase tracking-wider">Rule-Based Score</span>
+                    <span className="text-3xl font-extrabold text-indigo-400 mt-2">{detectionResult.riskScore}%</span>
+                    <span className="text-[8px] text-[#a0aec0] font-mono mt-1">Deterministic Rules</span>
+                  </div>
+
+                  {/* Score 2: ML Model */}
+                  <div className="bg-[#0a0e31]/95 border border-indigo-500/30 rounded-[20px] p-4 flex flex-col items-center justify-center text-center shadow-2xl min-w-[170px] relative overflow-hidden">
+                    <div className="absolute top-0 right-0 bg-[#0075ff]/20 px-2 py-0.5 text-[7px] text-[#00f2fe] font-bold rounded-bl-lg border-l border-b border-[#00f2fe]/20">ML ENGINE</div>
+                    <span className="text-[9px] font-bold text-[#00f2fe] font-mono uppercase tracking-wider">ML Model Score</span>
+                    {isLoadingMlScore ? (
+                      <div className="h-9 flex items-center justify-center mt-2">
+                        <div className="h-4.5 w-4.5 rounded-full border border-[#00f2fe] border-t-transparent animate-spin" />
+                      </div>
+                    ) : (
+                      <>
+                        <span className="text-3xl font-extrabold text-emerald-400 mt-2">
+                          {mlScoreData ? mlScoreData.combined_ml_score : detectionResult.riskScore}%
+                        </span>
+                        <span className="text-[7px] text-[#a0aec0] font-mono mt-1.5 leading-tight">
+                          GraphSAGE + Isolation Forest
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 
