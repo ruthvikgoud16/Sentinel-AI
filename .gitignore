@@ -58,3 +58,16 @@ data/
 # local logs
 *.log
 fastapi.log
+
+# Agent configuration and workspace rules
+.agents/
+AGENTS.md
+
+# Team internal documents & pitch prep drafts
+docs/internal/
+docs/pitch_narrative.md
+docs/pitch_one_page.md
+docs/pitch_script.md
+docs/problem_statement_alignment.md
+docs/problem_statement_pitch.md
+
