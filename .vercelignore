@@ -1,0 +1,8 @@
+.venv/
+data/
+models/
+ml_service/
+results/
+docs/
+scripts/
+fastapi.log
