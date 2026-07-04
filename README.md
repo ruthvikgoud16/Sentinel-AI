@@ -6,7 +6,8 @@
 
 **Real-time money mule detection • Gemini-powered forensic copilot • Instant SAR generation**
 
-🚀 **Live Vercel Demo:** [sentinel-ai-detect.vercel.app](https://sentinel-ai-detect.vercel.app)
+🚀 **Live Vercel Demo:** [sentinel-ai-detect.vercel.app](https://sentinel-ai-detect.vercel.app)  
+⚡ **Live Replit Backend:** [956695f9-d156-4ce4-aeba-31e18e21cf66-00-1n30fcqnxnw8v.sisko.replit.dev](https://956695f9-d156-4ce4-aeba-31e18e21cf66-00-1n30fcqnxnw8v.sisko.replit.dev/)
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -16,7 +17,7 @@
 
 <br/>
 
-<img src="https://img.shields.io/badge/HACKATHON_PROJECT-2026-blueviolet?style=for-the-badge" alt="Hackathon 2026"/>
+🏆 **Google Developers Group Vizag 2026 Hackathon**
 
 </div>
 

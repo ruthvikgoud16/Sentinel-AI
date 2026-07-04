@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   try {
     const { accountId, ruleScore } = await req.json();
 
-    // 1. Try FastAPI ML Service (Local Development)
+    // 1. Try Local FastAPI ML Service (Local Development)
     try {
       const response = await fetch('http://127.0.0.1:8000/score', {
         method: 'POST',
@@ -48,16 +48,44 @@ export async function POST(req: Request) {
         });
       }
     } catch (apiErr) {
-      // Local FastAPI service offline (expected on Vercel deployment)
+      // Local FastAPI service offline
     }
 
-    // 2. Try Pre-computed Scores from the GraphSAGE / Isolation Forest run
+    // 2. Try Remote Replit Backend Service
+    try {
+      const response = await fetch('https://956695f9-d156-4ce4-aeba-31e18e21cf66-00-1n30fcqnxnw8v.sisko.replit.dev/score', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          account_id: accountId,
+          rule_score: Number(ruleScore)
+        }),
+        signal: AbortSignal.timeout(1500) // 1.5s timeout for remote Replit service
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return NextResponse.json({
+          anomaly_score: data.anomaly_score,
+          mule_probability: data.mule_probability,
+          combined_ml_score: data.combined_ml_score,
+          isMock: false
+        });
+      }
+    } catch (replitErr) {
+      // Replit backend offline or timed out, fallback to precomputed JSON
+    }
+
+    // 3. Try Pre-computed Scores from the GraphSAGE / Isolation Forest run
     const scores = getPrecomputedScores();
     if (scores && scores[accountId]) {
       const data = scores[accountId];
       return NextResponse.json({
         anomaly_score: data.anomaly_score,
         mule_probability: data.mule_probability,
+
         combined_ml_score: data.combined_ml_score,
         isMock: false // These are actual real ML model scores generated during training!
       });
