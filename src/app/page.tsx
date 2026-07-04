@@ -15,32 +15,59 @@ import {
   User,
   Smartphone,
   Globe,
-  Database
+  Database,
+  FileText,
+  MessageSquare,
+  Clock,
+  Radio,
+  FileCheck2
 } from 'lucide-react';
-import { ROMANCE_SCAM_SCENARIO, DemoScenario } from '@/lib/mockData';
+import { SCENARIOS, ALERTS_LIST, DemoScenario, Alert, ROMANCE_SCAM_SCENARIO } from '@/lib/mockData';
 import MoneyFlowGraph from '@/components/MoneyFlowGraph';
 import { runDetectionEngine } from '@/lib/detectionEngine';
+import { Button } from '@/components/ui/button';
 
 export default function Home() {
-  // Demo interactive state
+  // Current Triage State
+  const [selectedAlertId, setSelectedAlertId] = useState<string>("alert-1042");
   const [scenario, setScenario] = useState<DemoScenario>(ROMANCE_SCAM_SCENARIO);
-  const [selectedAlertId, setSelectedAlertId] = useState<string | null>(ROMANCE_SCAM_SCENARIO.alert.id);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [isFrozen, setIsFrozen] = useState<boolean>(false);
+
+  // Per-Alert states to allow independent sandbox flows
+  const [frozenAlerts, setFrozenAlerts] = useState<Record<string, boolean>>({
+    "alert-1042": false,
+    "alert-2088": false,
+    "alert-3012": false
+  });
+  
+  const [chatHistories, setChatHistories] = useState<Record<string, Array<{ role: 'user' | 'model'; content: string }>>>({
+    "alert-1042": [],
+    "alert-2088": [],
+    "alert-3012": []
+  });
+
+  const [sarNarratives, setSarNarratives] = useState<Record<string, string>>({
+    "alert-1042": "",
+    "alert-2088": "",
+    "alert-3012": ""
+  });
+
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [isScanning, setIsScanning] = useState<boolean>(false);
-  const [chatMessages, setChatMessages] = useState<Array<{ role: 'user' | 'model'; content: string }>>([]);
   const [chatInput, setChatInput] = useState<string>('');
-
-  const handleRunScan = () => {
-    setIsScanning(true);
-    setTimeout(() => {
-      setIsScanning(false);
-    }, 1000);
-  };
+  const [activeTab, setActiveTab] = useState<'chat' | 'sar'>('chat');
+  const [sarSubmitted, setSarSubmitted] = useState<Record<string, boolean>>({
+    "alert-1042": false,
+    "alert-2088": false,
+    "alert-3012": false
+  });
 
   const currentAlert = scenario.alert;
+  const isFrozen = frozenAlerts[selectedAlertId];
+  const chatMessages = chatHistories[selectedAlertId] || [];
+  const currentSar = sarNarratives[selectedAlertId] || "";
 
+  // Dynamic risk calculation
   const detectionResult = runDetectionEngine(
     currentAlert.targetAccountId,
     scenario.graph.nodes,
@@ -48,20 +75,33 @@ export default function Home() {
     scenario.timeline
   );
 
-  // Simple resolution freeze trigger
-  const handleFreeze = () => {
-    setIsFrozen(true);
-    // Automatically document in chat
-    const updatedHistory = [...chatMessages, { role: 'user' as const, content: "Trigger mitigation freeze." }, { role: 'model' as const, content: "### Mitigation Executed\n- **Target Account (Robert Chen):** Frozen\n- **Flag Status:** Reported to NCIB database\n- **Graph Visuals:** Suspended entities highlighted in crimson." }];
-    setChatMessages(updatedHistory);
+  // Switch between alert cards
+  const handleAlertSelect = (alertId: string) => {
+    setSelectedAlertId(alertId);
+    setSelectedNodeId(null);
+    setScenario(SCENARIOS[alertId]);
+    setActiveTab('chat');
+  };
 
-    // Dynamically inject Mitigation event card into the timeline ledger
+  // Perform Resolution Freeze Action
+  const handleFreeze = () => {
+    setFrozenAlerts(prev => ({ ...prev, [selectedAlertId]: true }));
+    
+    // Auto-document in chat history
+    const updatedHistory = [
+      ...chatMessages,
+      { role: 'user' as const, content: "Trigger mitigation freeze." },
+      { role: 'model' as const, content: `### Mitigation Executed\n- **Target Account (${currentAlert.customerName}):** Frozen\n- **Flag Status:** Reported to NCIB database\n- **Graph Visuals:** Suspended entities highlighted in crimson.` }
+    ];
+    setChatHistories(prev => ({ ...prev, [selectedAlertId]: updatedHistory }));
+
+    // Inject event card into timeline
     const freezeEvent = {
-      id: "t-6",
+      id: `t-freeze-${selectedAlertId}-${Date.now()}`,
       timestamp: new Date().toISOString(),
       type: 'cyber_tip' as const,
       title: "Mitigation Active: Account Frozen",
-      description: "Compliance action executed by investigator. Suspect nodes isolated and reported to law enforcement."
+      description: `Compliance action executed by investigator. Target account ${currentAlert.customerName} isolated.`
     };
     
     setScenario(prev => ({
@@ -70,16 +110,84 @@ export default function Home() {
     }));
   };
 
+  // Call Gemini API Route
+  const callChatApi = async (userPrompt: string) => {
+    if (!userPrompt.trim()) return;
+    setIsAnalyzing(true);
+    
+    const updatedHistory = [...chatMessages, { role: 'user' as const, content: userPrompt }];
+    setChatHistories(prev => ({ ...prev, [selectedAlertId]: updatedHistory }));
+    setChatInput('');
+
+    try {
+      const context = {
+        targetAccount: `${scenario.alert.customerName} (acc-${scenario.alert.targetAccountId})`,
+        graphNodes: scenario.graph.nodes.map(n => ({ id: n.id, label: n.label, type: n.type, ip: n.ipAddress, device: n.deviceFingerprint })),
+        timelineEvents: scenario.timeline.map(t => `${t.timestamp}: ${t.title} - ${t.description}`)
+      };
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt: userPrompt,
+          context: context
+        })
+      });
+
+      const data = await response.json();
+      const reply = data.response || "No response received.";
+      
+      setChatHistories(prev => ({
+        ...prev,
+        [selectedAlertId]: [...updatedHistory, { role: 'model', content: reply }]
+      }));
+
+      // If the investigator requested a SAR, auto-populate the SAR Narrative form
+      if (userPrompt.toLowerCase().includes('sar') || userPrompt.toLowerCase().includes('suspicious activity report')) {
+        setSarNarratives(prev => ({ ...prev, [selectedAlertId]: reply }));
+        setActiveTab('sar'); // Seamless UX transition
+      }
+    } catch (err: any) {
+      console.error(err);
+      setChatHistories(prev => ({
+        ...prev,
+        [selectedAlertId]: [...updatedHistory, { role: 'model', content: `Error communicating with Gemini: ${err.message || err}` }]
+      }));
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleRunScan = () => {
+    setIsScanning(true);
+    setTimeout(() => {
+      setIsScanning(false);
+    }, 1000);
+  };
+
+  const handleReset = () => {
+    setFrozenAlerts(prev => ({ ...prev, [selectedAlertId]: false }));
+    setChatHistories(prev => ({ ...prev, [selectedAlertId]: [] }));
+    setSarNarratives(prev => ({ ...prev, [selectedAlertId]: "" }));
+    setSarSubmitted(prev => ({ ...prev, [selectedAlertId]: false }));
+    setScenario(SCENARIOS[selectedAlertId]);
+  };
+
+  const handleSubmitSar = () => {
+    setSarSubmitted(prev => ({ ...prev, [selectedAlertId]: true }));
+  };
+
+  // Simple Markdown Renderer
   const renderMarkdown = (text: string) => {
     const lines = text.split('\n');
     return lines.map((line, idx) => {
       let cleanLine = line;
-
-      // Bold replacements (**text**)
       const boldRegex = /\*\*(.*?)\*\*/g;
       cleanLine = cleanLine.replace(boldRegex, '<strong>$1</strong>');
 
-      // Check for headers (e.g. ### Header)
       if (cleanLine.startsWith('### ')) {
         const headerText = cleanLine.substring(4).replace(boldRegex, '$1');
         return (
@@ -98,11 +206,10 @@ export default function Home() {
         );
       }
 
-      // Check for bullet items (e.g. - item or * item)
       if (cleanLine.startsWith('- ') || cleanLine.startsWith('* ')) {
         const bulletText = cleanLine.substring(2);
         return (
-          <div key={idx} className="flex items-start space-x-1.5 ml-2 my-1">
+          <div key={idx} className="flex items-start space-x-1.5 ml-2 my-1 text-slate-300">
             <span className="text-indigo-500 mt-0.5">•</span>
             <span dangerouslySetInnerHTML={{ __html: bulletText }} />
           </div>
@@ -128,45 +235,9 @@ export default function Home() {
     });
   };
 
-  const callChatApi = async (userPrompt: string) => {
-    if (!userPrompt.trim()) return;
-    setIsAnalyzing(true);
-    
-    const updatedHistory = [...chatMessages, { role: 'user' as const, content: userPrompt }];
-    setChatMessages(updatedHistory);
-    setChatInput('');
-
-    try {
-      const context = {
-        targetAccount: `${scenario.alert.customerName} (acc-${scenario.alert.targetAccountId})`,
-        graphNodes: scenario.graph.nodes.map(n => ({ id: n.id, label: n.label, type: n.type, ip: n.ipAddress, device: n.deviceFingerprint })),
-        timelineEvents: scenario.timeline.map(t => `${t.timestamp}: ${t.title} - ${t.description}`)
-      };
-
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          prompt: userPrompt,
-          context: context
-        })
-      });
-
-      const data = await response.json();
-      setChatMessages([...updatedHistory, { role: 'model', content: data.response || "No response received." }]);
-    } catch (err: any) {
-      console.error(err);
-      setChatMessages([...updatedHistory, { role: 'model', content: `Error communicating with Gemini: ${err.message || err}` }]);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
   return (
     <main className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 font-sans antialiased">
-      {/* 1. HEADER (Top Bar) */}
+      {/* 1. HEADER */}
       <div className="absolute top-0 left-0 right-0 h-16 border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md flex items-center justify-between px-6 z-10">
         <div className="flex items-center space-x-3">
           <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-rose-600 to-indigo-600 shadow-lg shadow-indigo-500/20">
@@ -182,145 +253,141 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Top metrics (Judge focused) */}
+        {/* Status indicator badges */}
         <div className="flex items-center space-x-6">
-          <div className="hidden md:flex items-center space-x-4">
-            <div className="text-right">
-              <span className="block text-[10px] text-slate-400 font-mono">INVESTIGATOR PROFILE</span>
-              <span className="text-xs font-medium text-slate-200">Compliance Officer</span>
-            </div>
-            <div className="h-8 w-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center">
-              <User className="h-4 w-4 text-slate-300" />
-            </div>
+          <div className="hidden md:flex items-center space-x-2 text-[11px] font-mono text-slate-400">
+            <Radio className="h-3.5 w-3.5 text-emerald-450 animate-pulse" />
+            <span>LIVE CORRELATION FEED</span>
           </div>
           <div className="h-4 w-[1px] bg-slate-800" />
           <div className="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-red-950/20 border border-red-500/20">
             <AlertTriangle className="h-4 w-4 text-red-500 animate-pulse" />
-            <span className="text-xs font-semibold text-red-400">1 CRITICAL THREAT</span>
+            <span className="text-xs font-semibold text-red-400">
+              {Object.values(frozenAlerts).filter(v => !v).length} OPEN ALERTS
+            </span>
           </div>
         </div>
       </div>
 
-      {/* 2. BODY SPLIT (Dashboard Sidebar + Interactive Workspace) */}
+      {/* 2. BODY SPLIT */}
       <div className="flex w-full h-full pt-16">
         
-        {/* LEFT COLUMN: Sidebar Alert Queue (Triage) */}
-        <div className="w-80 h-full border-r border-slate-800 bg-slate-900/40 flex flex-col">
+        {/* LEFT COLUMN: Sidebar Alert Queue */}
+        <div className="w-80 h-full border-r border-slate-800 bg-slate-900/30 backdrop-blur-md flex flex-col">
           <div className="p-4 border-b border-slate-800">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">Active Triage Feed</h2>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">1 alert</span>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">Triage Cases</h2>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">3 alerts</span>
             </div>
-            <input 
-              type="text" 
-              placeholder="Search suspect accounts..." 
-              className="w-full text-xs px-3 py-2 rounded-lg bg-slate-950/60 border border-slate-800 text-slate-300 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
-              disabled
-            />
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {/* The single preloaded Romance Scam Alert */}
-            <div 
-              onClick={() => setSelectedAlertId(currentAlert.id)}
-              className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
-                selectedAlertId === currentAlert.id 
-                  ? 'bg-slate-800/60 border-indigo-500 shadow-md shadow-indigo-500/5' 
-                  : 'bg-slate-900/20 border-slate-800 hover:bg-slate-800/20'
-              }`}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <span className="text-[10px] font-mono text-indigo-400 font-semibold tracking-wider">ALERT #1042</span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold font-mono ${
-                  isFrozen ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                }`}>
-                  {isFrozen ? 'RESOLVED: FROZEN' : 'CRITICAL'}
-                </span>
-              </div>
-              <h3 className="text-sm font-semibold text-slate-200 mb-1 flex items-center justify-between">
-                <span>{currentAlert.customerName}</span>
-                {!isFrozen && (
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-                  </span>
-                )}
-              </h3>
-              <p className="text-xs text-slate-400 line-clamp-2 mb-3">{currentAlert.description}</p>
-              
-              <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5">
-                <div className="flex items-center space-x-1.5">
-                  <div className="h-2 w-2 rounded-full bg-rose-500" />
-                  <span className="text-[10px] text-slate-400 font-mono">Risk: {currentAlert.riskScore}/100</span>
+            {ALERTS_LIST.map((alert) => {
+              const alertFrozen = frozenAlerts[alert.id];
+              return (
+                <div 
+                  key={alert.id}
+                  onClick={() => handleAlertSelect(alert.id)}
+                  className={`p-3 rounded-xl border transition-all cursor-pointer relative ${
+                    selectedAlertId === alert.id 
+                      ? alertFrozen
+                        ? 'bg-slate-800/40 border-red-950 shadow-md'
+                        : 'bg-slate-800/60 border-indigo-500 shadow-md shadow-indigo-500/5 ring-1 ring-indigo-500/30' 
+                      : 'bg-slate-900/20 border-slate-800 hover:bg-slate-800/20'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <span className="text-[9px] font-mono text-indigo-400 font-semibold tracking-wider">{alert.id.toUpperCase()}</span>
+                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold font-mono ${
+                      alertFrozen 
+                        ? 'bg-red-500/10 text-red-400 border border-red-550/20' 
+                        : 'bg-rose-500/10 text-rose-450 border border-rose-500/20'
+                    }`}>
+                      {alertFrozen ? 'RESOLVED: FROZEN' : alert.severity}
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-semibold text-slate-200 mb-1 flex items-center justify-between">
+                    <span>{alert.customerName}</span>
+                    {!alertFrozen && (
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-slate-400 line-clamp-2 mb-2.5">{alert.description}</p>
+                  
+                  <div className="flex items-center justify-between border-t border-slate-800/80 pt-2">
+                    <div className="flex items-center space-x-1.5">
+                      <div className={`h-1.5 w-1.5 rounded-full ${alertFrozen ? 'bg-red-500' : 'bg-rose-500'}`} />
+                      <span className="text-[10px] text-slate-400 font-mono">Risk: {alert.riskScore}/100</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center text-[10px] text-slate-300 font-mono">
-                  <span>Details</span>
-                  <ChevronRight className="h-3 w-3 ml-0.5" />
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
 
           <div className="p-4 border-t border-slate-800 bg-slate-900/60 flex flex-col space-y-2">
             <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-              <span>MOCK DATABASE</span>
+              <span>SANDBOX MOCK</span>
               <span className="text-emerald-400 flex items-center space-x-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
-                <span>ONLINE</span>
+                <span>ACTIVE</span>
               </span>
             </div>
-            <button 
-              className="w-full text-xs py-2 px-3 rounded-lg bg-slate-850 hover:bg-slate-800 text-slate-300 font-medium border border-slate-800 transition-colors flex items-center justify-center space-x-2"
-              onClick={() => {
-                setIsFrozen(false);
-                setChatMessages([]);
-                setScenario(ROMANCE_SCAM_SCENARIO);
-              }}
+            <Button 
+              variant="outline"
+              size="sm"
+              className="w-full text-xs font-semibold flex items-center justify-center space-x-2 dark:bg-slate-800 border-slate-700"
+              onClick={handleReset}
             >
               <Database className="h-3.5 w-3.5" />
-              <span>Reset Mock Database</span>
-            </button>
+              <span>Reset Scenario State</span>
+            </Button>
           </div>
         </div>
 
-        {/* WORKSPACE MIDDLE: Graph Workspace & Timeline */}
+        {/* WORKSPACE MIDDLE: Graph + Timeline */}
         <div className="flex-1 h-full flex flex-col bg-slate-950/20">
           
+          {/* Mitigation notification banner */}
           {isFrozen && (
             <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-2 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Lock className="h-4 w-4 text-red-500" />
-                <span className="text-[11px] font-semibold text-red-400 font-mono">MITIGATION ACTIVE: Account frozen & reported to law enforcement database.</span>
+                <span className="text-[11px] font-semibold text-red-400 font-mono">MITIGATION ACTIVE: Account frozen & reported to law enforcement.</span>
               </div>
               <button 
-                onClick={() => setIsFrozen(false)}
+                onClick={() => setFrozenAlerts(prev => ({ ...prev, [selectedAlertId]: false }))}
                 className="text-[10px] text-red-400 hover:text-red-300 font-bold underline font-mono cursor-pointer"
               >
                 RESET
               </button>
             </div>
           )}
+          
           {/* Main Triage Workspace Header */}
           <div className="h-14 border-b border-slate-800 bg-slate-900/20 flex items-center justify-between px-6">
             <div className="flex items-center space-x-3">
-              <span className="text-xs font-mono text-slate-500 uppercase">Alert Details</span>
+              <span className="text-xs font-mono text-slate-500 uppercase">Alert Workspace</span>
               <h2 className="text-sm font-semibold text-slate-200">{currentAlert.customerName} (Account #{currentAlert.targetAccountId})</h2>
             </div>
             
-            {/* Quick Actions (Freeze Button) */}
+            {/* Quick Actions (Shadcn Button used here) */}
             <div className="flex items-center space-x-2">
-              <button 
+              <Button 
                 onClick={handleFreeze}
                 disabled={isFrozen}
-                className={`text-xs px-4 py-1.5 rounded-lg font-semibold transition-all flex items-center space-x-2 border shadow-lg ${
-                  isFrozen
-                    ? 'bg-red-500/10 text-red-400 border-red-500/20 cursor-not-allowed shadow-none'
-                    : 'bg-red-600 hover:bg-red-500 text-white border-red-500 shadow-red-900/10 hover:scale-[1.02] cursor-pointer'
+                variant={isFrozen ? "outline" : "destructive"}
+                size="default"
+                className={`font-semibold cursor-pointer border ${
+                  !isFrozen && 'hover:scale-[1.02] transition-transform'
                 }`}
               >
                 <Lock className="h-3.5 w-3.5" />
-                <span>{isFrozen ? 'Account & Network Frozen' : 'Freeze Account & Network'}</span>
-              </button>
+                <span>{isFrozen ? 'Account Frozen' : 'Freeze Account & Network'}</span>
+              </Button>
             </div>
           </div>
 
@@ -332,14 +399,14 @@ export default function Home() {
                 <span className="block text-[9px] font-mono text-slate-400 uppercase">Mule Risk Factor</span>
                 <span className="text-sm font-bold text-rose-500">{detectionResult.riskScore}/100 ({detectionResult.riskScore >= 70 ? 'CRITICAL RISK' : 'LOW RISK'})</span>
               </div>
-              <div className="bg-slate-900/90 border border-slate-800 backdrop-blur-md px-3 py-2 rounded-lg shadow-xl flex items-center space-x-2">
+              <div className="bg-slate-900/90 border border-slate-800/80 backdrop-blur-md px-3 py-1.5 rounded-lg shadow-xl flex items-center space-x-2">
                 <div className="h-2 w-2 rounded-full bg-rose-500 animate-ping" />
                 <span className="text-xs text-slate-200 font-mono">Interactive Network Loaded</span>
               </div>
             </div>
 
-            {/* Threat Diagnostics Scan Overlay (Explainable Detection Engine) */}
-            <div className="absolute top-4 right-4 z-10 w-72 bg-slate-900/95 border border-slate-800/80 backdrop-blur-md p-3.5 rounded-xl shadow-2xl flex flex-col max-h-[90%] overflow-y-auto">
+            {/* Threat Diagnostics Scan Overlay */}
+            <div className="absolute top-4 right-4 z-10 w-72 bg-slate-900/95 border border-slate-800/80 backdrop-blur-md p-3.5 rounded-xl shadow-2xl flex flex-col max-h-[75%] overflow-y-auto">
               <span className="text-[10px] font-bold text-indigo-400 font-mono uppercase tracking-wider mb-2.5 flex items-center space-x-1.5 border-b border-slate-800 pb-1.5">
                 <Activity className="h-3 w-3 text-indigo-400 animate-pulse" />
                 <span>Threat Diagnostic Scan</span>
@@ -355,7 +422,7 @@ export default function Home() {
                     {detectionResult.triggeredSignals.map((sig) => (
                       <div key={sig.id} className="flex flex-col text-[11px] border-b border-slate-800/30 pb-2 last:border-b-0 last:pb-0">
                         <div className="flex items-center justify-between">
-                          <span className="text-slate-305 font-medium">{sig.name}</span>
+                          <span className="text-slate-300 font-medium">{sig.name}</span>
                           <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold font-mono ${
                             sig.triggered 
                               ? 'bg-rose-500/10 text-rose-450 border border-rose-500/20' 
@@ -440,21 +507,26 @@ export default function Home() {
                 );
               })()}
 
-              {/* Floating Analytics Metrics Banner */}
-              <div className="absolute bottom-4 right-4 z-10 flex items-center space-x-2 bg-slate-900/90 border border-slate-800 backdrop-blur-md px-3 py-2 rounded-lg shadow-xl text-[10px] font-mono text-slate-350">
-                <div className="flex items-center space-x-1 border-r border-slate-800 pr-2">
-                  <span className="text-slate-500">HOPS:</span>
-                  <span className="text-indigo-400 font-bold">3 Layer Steps</span>
+              {/* Floating Graph Legend */}
+              <div className="absolute bottom-4 right-4 z-10 flex items-center space-x-4 bg-slate-900/90 border border-slate-800 backdrop-blur-md px-3.5 py-2 rounded-xl shadow-xl text-[9px] font-mono">
+                <div className="flex items-center space-x-1.5">
+                  <div className="h-2 w-2 rounded-full bg-emerald-500 shadow shadow-emerald-500" />
+                  <span className="text-slate-400">Victim</span>
                 </div>
-                <div className="flex items-center space-x-1 border-r border-slate-800 px-2">
-                  <span className="text-slate-500">DEVICES:</span>
-                  <span className="text-amber-450 font-bold">1 Collision</span>
+                <div className="flex items-center space-x-1.5">
+                  <div className="h-2 w-2 rounded-full bg-orange-500 shadow shadow-orange-500" />
+                  <span className="text-slate-400">Intermediary</span>
                 </div>
-                <div className="flex items-center space-x-1 px-2">
-                  <span className="text-slate-500">VELOCITY:</span>
-                  <span className="text-rose-450 font-bold">3m Layering</span>
+                <div className="flex items-center space-x-1.5">
+                  <div className="h-2 w-2 rounded-full bg-rose-500 shadow shadow-rose-500" />
+                  <span className="text-slate-400">Target Mule</span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <div className="h-2 w-2 rounded-full bg-indigo-500 shadow shadow-indigo-500" />
+                  <span className="text-slate-400">Cashout</span>
                 </div>
               </div>
+
             </div>
           </div>
 
@@ -494,7 +566,7 @@ export default function Home() {
                             {event.type}
                           </span>
                         </div>
-                        <span className="text-[9px] text-slate-500 font-mono">
+                        <span className="text-[9px] text-slate-500 font-mono" suppressHydrationWarning>
                           {new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </span>
                       </div>
@@ -515,134 +587,245 @@ export default function Home() {
 
         {/* RIGHT COLUMN: AI Copilot Drawer */}
         <div className="w-96 h-full border-l border-slate-800 bg-slate-900/40 flex flex-col">
-          <div className="p-4 border-b border-slate-800">
-            <div className="flex items-center space-x-2">
-              <Cpu className="h-4 w-4 text-indigo-400 animate-pulse" />
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300 font-mono">Gemini Forensic Copilot</h2>
-            </div>
+          
+          {/* Tabbed Navigation Bar (Shadcn Tabs UI look) */}
+          <div className="flex border-b border-slate-800 bg-slate-950/20">
+            <button 
+              onClick={() => setActiveTab('chat')}
+              className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider font-mono flex items-center justify-center space-x-2 border-b-2 transition-all cursor-pointer ${
+                activeTab === 'chat' 
+                  ? 'border-indigo-500 text-indigo-400 bg-slate-900/20' 
+                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/10'
+              }`}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span>Copilot Chat</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('sar')}
+              className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider font-mono flex items-center justify-center space-x-2 border-b-2 transition-all cursor-pointer ${
+                activeTab === 'sar' 
+                  ? 'border-indigo-500 text-indigo-400 bg-slate-900/20' 
+                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/10'
+              }`}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              <span>Regulatory SAR</span>
+              {currentSar && !sarSubmitted[selectedAlertId] && (
+                <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
+              )}
+            </button>
           </div>
 
-          {/* Chat / Analysis panel */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col">
-            {chatMessages.length === 0 && !isAnalyzing ? (
-              // Initial State: Visual Call to Action & Quick Prompts
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
-                <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-3">
-                  <Cpu className="h-6 w-6 text-indigo-400" />
-                </div>
-                <h3 className="text-xs font-bold text-slate-200 uppercase font-mono tracking-wider mb-1">Instant Risk Explanation</h3>
-                <p className="text-xs text-slate-400 mb-6">Request Gemini to analyze the transaction flow, find device sharing anomalies, and draft Suspicious Activity Reports.</p>
-                
-                <div className="flex flex-col space-y-2 w-full max-w-xs">
-                  <button 
-                    className="w-full text-xs font-semibold py-2.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center space-x-2 transition-colors cursor-pointer border border-indigo-500/25"
-                    onClick={() => callChatApi("Analyze this critical alert and highlight the main risk factors.")}
-                  >
-                    <TrendingUp className="h-3.5 w-3.5" />
-                    <span>Analyze Alert with Gemini</span>
-                  </button>
-                  
-                  <button 
-                    className="w-full text-xs font-semibold py-2.5 px-3 rounded-lg bg-slate-850 hover:bg-slate-800 text-slate-250 flex items-center justify-center space-x-2 transition-colors cursor-pointer border border-slate-700/50"
-                    onClick={() => callChatApi("Draft a formal regulatory Suspicious Activity Report (SAR) narrative for this transaction ring.")}
-                  >
-                    <Shield className="h-3.5 w-3.5" />
-                    <span>Draft SAR Narrative</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              // Active Conversation Feed
-              <div className="space-y-4 flex-1">
-                {chatMessages.map((msg, index) => (
-                  <div 
-                    key={index} 
-                    className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
-                  >
-                    <span className="text-[9px] font-mono text-slate-500 mb-1 px-1">
-                      {msg.role === 'user' ? 'Investigator' : 'Gemini Copilot'}
-                    </span>
-                    <div 
-                      className={`p-3 rounded-xl max-w-[95%] text-xs font-sans leading-relaxed ${
-                        msg.role === 'user' 
-                          ? 'bg-indigo-650 text-white rounded-tr-none whitespace-pre-wrap' 
-                          : 'bg-slate-900/80 border border-slate-800 text-slate-200 rounded-tl-none'
-                      }`}
-                    >
-                      {msg.role === 'user' ? msg.content : renderMarkdown(msg.content)}
+          {/* TAB CONTENT: Copilot Chat */}
+          {activeTab === 'chat' && (
+            <>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col">
+                {chatMessages.length === 0 && !isAnalyzing ? (
+                  // Initial State
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
+                    <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-3">
+                      <Cpu className="h-6 w-6 text-indigo-400 animate-pulse" />
+                    </div>
+                    <h3 className="text-xs font-bold text-slate-200 uppercase font-mono tracking-wider mb-1">Instant Risk Explanation</h3>
+                    <p className="text-xs text-slate-400 mb-6">Request Gemini to analyze the transaction flow, find device sharing anomalies, and draft Suspicious Activity Reports.</p>
+                    
+                    <div className="flex flex-col space-y-2 w-full max-w-xs">
+                      <Button 
+                        onClick={() => callChatApi("Analyze this critical alert and highlight the main risk factors.")}
+                        className="w-full font-semibold flex items-center justify-center space-x-2 cursor-pointer"
+                      >
+                        <TrendingUp className="h-3.5 w-3.5" />
+                        <span>Analyze Alert with Gemini</span>
+                      </Button>
+                      
+                      <Button 
+                        onClick={() => callChatApi("Draft a formal regulatory Suspicious Activity Report (SAR) narrative for this transaction ring.")}
+                        variant="secondary"
+                        className="w-full font-semibold flex items-center justify-center space-x-2 border border-slate-700/50 cursor-pointer"
+                      >
+                        <Shield className="h-3.5 w-3.5" />
+                        <span>Draft SAR Narrative</span>
+                      </Button>
                     </div>
                   </div>
-                ))}
-                
-                {/* Shimmer loading state */}
-                {isAnalyzing && (
-                  <div className="flex flex-col items-start">
-                    <span className="text-[9px] font-mono text-slate-500 mb-1 px-1">Gemini Copilot</span>
-                    <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 rounded-tl-none w-5/6 flex flex-col space-y-2">
-                      <div className="h-3 bg-slate-800 rounded animate-pulse w-full" />
-                      <div className="h-3 bg-slate-800 rounded animate-pulse w-5/6" />
-                      <div className="h-3 bg-slate-800 rounded animate-pulse w-4/6" />
-                    </div>
+                ) : (
+                  // Active Conversation Feed
+                  <div className="space-y-4 flex-1">
+                    {chatMessages.map((msg, index) => (
+                      <div 
+                        key={index} 
+                        className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+                      >
+                        <span className="text-[9px] font-mono text-slate-500 mb-1 px-1">
+                          {msg.role === 'user' ? 'Investigator' : 'Gemini Copilot'}
+                        </span>
+                        <div 
+                          className={`p-3 rounded-xl max-w-[95%] text-xs font-sans leading-relaxed ${
+                            msg.role === 'user' 
+                              ? 'bg-indigo-650 text-white rounded-tr-none whitespace-pre-wrap' 
+                              : 'bg-slate-900/80 border border-slate-800 text-slate-200 rounded-tl-none shadow'
+                          }`}
+                        >
+                          {msg.role === 'user' ? msg.content : renderMarkdown(msg.content)}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Shimmer loading state */}
+                    {isAnalyzing && (
+                      <div className="flex flex-col items-start">
+                        <span className="text-[9px] font-mono text-slate-500 mb-1 px-1">Gemini Copilot</span>
+                        <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 rounded-tl-none w-5/6 flex flex-col space-y-2">
+                          <div className="h-3 bg-slate-800 rounded animate-pulse w-full" />
+                          <div className="h-3 bg-slate-800 rounded animate-pulse w-5/6" />
+                          <div className="h-3 bg-slate-800 rounded animate-pulse w-4/6" />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
 
-          {/* Prompt / Input bar */}
-          <form 
-            onSubmit={(e) => {
-              e.preventDefault();
-              callChatApi(chatInput);
-            }}
-            className="p-4 border-t border-slate-800 bg-slate-950/40 flex flex-col space-y-3"
-          >
-            {/* Quick Prompt Chips */}
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => callChatApi("Analyze this critical alert and highlight the main risk factors.")}
-                className="text-[9px] px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
-                disabled={isAnalyzing}
+              {/* Prompt / Input bar */}
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  callChatApi(chatInput);
+                }}
+                className="p-4 border-t border-slate-800 bg-slate-950/40 flex flex-col space-y-3"
               >
-                🔍 Analyze Risk
-              </button>
-              <button
-                type="button"
-                onClick={() => callChatApi("Identify shared device fingerprints and cross-channel overlays.")}
-                className="text-[9px] px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
-                disabled={isAnalyzing}
-              >
-                📱 Check Devices
-              </button>
-              <button
-                type="button"
-                onClick={() => callChatApi("Draft a formal regulatory Suspicious Activity Report (SAR) narrative for this transaction ring.")}
-                className="text-[9px] px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-350 hover:bg-slate-800 transition-colors cursor-pointer"
-                disabled={isAnalyzing}
-              >
-                ✍️ Draft SAR
-              </button>
-            </div>
+                {/* Quick Prompt Chips */}
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => callChatApi("Analyze this critical alert and highlight the main risk factors.")}
+                    className="text-[9px] px-2 py-1 rounded bg-slate-900 border border-slate-850 text-slate-350 hover:bg-slate-800 transition-colors cursor-pointer"
+                    disabled={isAnalyzing}
+                  >
+                    🔍 Analyze Risk
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => callChatApi("Identify shared device fingerprints and cross-channel overlays.")}
+                    className="text-[9px] px-2 py-1 rounded bg-slate-900 border border-slate-850 text-slate-350 hover:bg-slate-800 transition-colors cursor-pointer"
+                    disabled={isAnalyzing}
+                  >
+                    📱 Check Devices
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => callChatApi("Draft a formal regulatory Suspicious Activity Report (SAR) narrative for this transaction ring.")}
+                    className="text-[9px] px-2 py-1 rounded bg-slate-900 border border-slate-850 text-slate-350 hover:bg-slate-800 transition-colors cursor-pointer"
+                    disabled={isAnalyzing}
+                  >
+                    ✍️ Draft SAR
+                  </button>
+                </div>
 
-            <div className="flex space-x-2">
-              <input 
-                type="text" 
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Ask Gemini about this network..." 
-                className="flex-1 text-xs px-3 py-2.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
-                disabled={isAnalyzing}
-              />
-              <button 
-                type="submit"
-                className="px-4 py-2 rounded-lg bg-indigo-650 hover:bg-indigo-600 text-white text-xs font-semibold disabled:opacity-50 transition-colors"
-                disabled={isAnalyzing || !chatInput.trim()}
-              >
-                Send
-              </button>
+                <div className="flex space-x-2">
+                  <input 
+                    type="text" 
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder="Ask Gemini about this network..." 
+                    className="flex-1 text-xs px-3 py-2.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                    disabled={isAnalyzing}
+                  />
+                  <Button 
+                    type="submit"
+                    disabled={isAnalyzing || !chatInput.trim()}
+                    className="cursor-pointer font-semibold bg-indigo-650 hover:bg-indigo-600 text-white"
+                  >
+                    Send
+                  </Button>
+                </div>
+              </form>
+            </>
+          )}
+
+          {/* TAB CONTENT: Regulatory SAR Filing Form */}
+          {activeTab === 'sar' && (
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col justify-between">
+              
+              <div className="space-y-4">
+                <div className="border border-slate-800 rounded-xl p-3 bg-slate-950/40 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <span className="text-[10px] font-bold text-slate-450 font-mono uppercase">FinCEN Form 111 (Draft)</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold font-mono ${
+                      sarSubmitted[selectedAlertId] 
+                        ? 'bg-emerald-500/10 text-emerald-450 border border-emerald-500/20' 
+                        : currentSar 
+                          ? 'bg-amber-500/10 text-amber-450 border border-amber-500/20' 
+                          : 'bg-slate-800 text-slate-500 border border-slate-800'
+                    }`}>
+                      {sarSubmitted[selectedAlertId] ? 'SUBMITTED' : currentSar ? 'PENDING FILING' : 'EMPTY'}
+                    </span>
+                  </div>
+
+                  {/* Preloaded Fields */}
+                  <div className="grid grid-cols-2 gap-3 text-[10px] font-mono">
+                    <div>
+                      <span className="text-slate-500 block">Filing Bank:</span>
+                      <span className="text-slate-200">Sentinel Security Inc</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Filing Date:</span>
+                      <span className="text-slate-200">2026-07-04</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Subject Name:</span>
+                      <span className="text-slate-200">{currentAlert.customerName}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block">Subject Account:</span>
+                      <span className="text-slate-200">acc-{currentAlert.targetAccountId}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Narrative Field */}
+                <div className="space-y-1.5 flex-1 flex flex-col">
+                  <label className="text-[10px] uppercase font-bold tracking-wider font-mono text-slate-450">Section V: Suspicious Activity Narrative</label>
+                  {currentSar ? (
+                    <textarea 
+                      value={currentSar}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSarNarratives(prev => ({ ...prev, [selectedAlertId]: val }));
+                      }}
+                      className="w-full h-[320px] p-3 text-xs rounded-xl bg-slate-950 border border-slate-800 text-slate-300 focus:outline-none focus:border-indigo-500 leading-relaxed font-sans scrollbar-thin"
+                    />
+                  ) : (
+                    <div className="h-56 border border-dashed border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center text-center bg-slate-950/10">
+                      <FileText className="h-8 w-8 text-slate-600 mb-2" />
+                      <p className="text-xs text-slate-500 max-w-xs">No SAR narrative generated. Go to Copilot Chat and click <strong>"Draft SAR"</strong> to auto-generate this report via Gemini.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Submission Button */}
+              {currentSar && (
+                <div className="border-t border-slate-800 pt-4 mt-4">
+                  {sarSubmitted[selectedAlertId] ? (
+                    <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center space-x-2 text-xs text-emerald-400 font-mono">
+                      <FileCheck2 className="h-4 w-4" />
+                      <span>Filing Submitted. ID: FinCEN-2026-{selectedAlertId.replace('alert-', '')}</span>
+                    </div>
+                  ) : (
+                    <Button 
+                      onClick={handleSubmitSar}
+                      className="w-full py-2.5 font-semibold bg-emerald-650 hover:bg-emerald-600 text-white cursor-pointer"
+                    >
+                      Submit Regulatory Filing to FinCEN
+                    </Button>
+                  )}
+                </div>
+              )}
+
             </div>
-          </form>
+          )}
 
         </div>
 
