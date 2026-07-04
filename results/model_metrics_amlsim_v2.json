@@ -2,7 +2,7 @@
     "dataset": "IBM AMLSim HI-Small (subsampled)",
     "subsample_summary": {
         "total_nodes": 56357,
-        "total_edges": 70780,
+        "total_edges": 70319,
         "positive_nodes": 6357,
         "negative_nodes": 50000,
         "positive_rate_pct": 11.28,
@@ -24,17 +24,17 @@
         "holding_time_var"
     ],
     "graphsage": {
-        "auc": 0.6715473116883116,
-        "threshold": 0.0449787974357605,
-        "precision": 0.5235611510791367,
-        "recall": 0.7561038961038961,
-        "f1_score": 0.6187035069075452
+        "auc": 0.8549425233644861,
+        "threshold": 0.10440525412559509,
+        "precision": 0.15896025993501625,
+        "recall": 0.9906542056074766,
+        "f1_score": 0.2739608012061167
     },
     "graphsage_edge_masked_35pct": {
-        "auc": 0.7227470649350649,
-        "threshold": 0.19602499902248383,
-        "precision": 0.5207618393960192,
-        "recall": 0.7883116883116883,
-        "f1_score": 0.6271957015912378
+        "auc": 0.8413339563862929,
+        "threshold": 0.3356073498725891,
+        "precision": 0.16332776850306066,
+        "recall": 0.9143302180685359,
+        "f1_score": 0.277148253068933
     }
 }

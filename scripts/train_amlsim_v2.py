@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import networkx as nx
 from collections import defaultdict
+import hashlib
 
 import torch
 import torch.nn as nn
@@ -22,6 +23,14 @@ from sklearn.preprocessing import StandardScaler
 
 random.seed(42)
 np.random.seed(42)
+torch.manual_seed(42)
+torch.cuda.manual_seed_all(42)
+try:
+    torch.use_deterministic_algorithms(True)
+    print("PyTorch deterministic algorithms enabled.")
+except Exception as e:
+    print(f"Could not enable torch.use_deterministic_algorithms: {e}")
+
 
 # ============================================================
 # STEP 2: Subsample
@@ -146,7 +155,7 @@ for e in all_edges:
     else:
         G.add_edge(e['from'], e['to'], amount=e['amount'], timestamp=e['timestamp'], tx_count=1)
 
-nodes = list(G.nodes)
+nodes = sorted(list(G.nodes))
 node_to_idx = {n: i for i, n in enumerate(nodes)}
 
 print(f"Graph built: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
@@ -201,12 +210,12 @@ print("=" * 60)
 # This prevents the same laundering "ring" from appearing in both splits.
 
 launder_subgraph = G.subgraph([n for n in nodes if account_labels[n] == 1]).to_undirected()
-components = list(nx.connected_components(launder_subgraph))
+# Stably extract and sort connected components
+components = [sorted(list(c)) for c in nx.connected_components(launder_subgraph)]
+components.sort(key=lambda c: (len(c), c[0]))
 print(f"Laundering connected components: {len(components)}")
 
 # Shuffle components (seeded) then assign 80/20 by interleaving
-# This ensures both train and test contain a mix of small and large patterns,
-# unlike sort-by-size which puts all small in train and all large in test.
 random.shuffle(components)
 split_idx = int(len(components) * 0.8)
 train_components = components[:split_idx]
@@ -222,7 +231,8 @@ for comp in test_components:
 print(f"Train laundering nodes: {len(train_launder_nodes)}, Test laundering nodes: {len(test_launder_nodes)}")
 
 # Split background nodes 80/20
-bg_nodes = [n for n in nodes if account_labels[n] == 0]
+# Stably sort bg_nodes before shuffling
+bg_nodes = sorted([n for n in nodes if account_labels[n] == 0])
 random.shuffle(bg_nodes)
 bg_split = int(len(bg_nodes) * 0.8)
 
@@ -241,6 +251,13 @@ for i, node in enumerate(nodes):
 
 train_idx = np.array(train_indices)
 test_idx = np.array(test_indices)
+
+# Compute split hash for reproducibility check
+train_nodes_sorted = sorted([nodes[i] for i in train_indices])
+test_nodes_sorted = sorted([nodes[i] for i in test_indices])
+split_hash = hashlib.sha256(("\n".join(train_nodes_sorted) + "|||" + "\n".join(test_nodes_sorted)).encode('utf-8')).hexdigest()
+print(f"Split Hash: {split_hash}")
+
 print(f"Train nodes: {len(train_idx)}, Test nodes: {len(test_idx)}")
 print(f"Test positives: {y[test_idx].sum()}, Test negatives: {len(test_idx) - y[test_idx].sum()}")
 
@@ -337,11 +354,11 @@ else:
     sage_auc = 0.0
 sage_p, sage_r, sage_f1, _ = precision_recall_fscore_support(test_y, test_preds, average='binary', zero_division=0)
 
-print(f"\n  GraphSAGE AMLSim Test Metrics (Youden threshold={best_threshold:.4f}):")
-print(f"  AUC:       {sage_auc:.4f}")
-print(f"  Precision: {sage_p:.4f}")
-print(f"  Recall:    {sage_r:.4f}")
-print(f"  F1:        {sage_f1:.4f}")
+print(f"\n  GraphSAGE AMLSim Test Metrics (Youden threshold={best_threshold:.6f}):")
+print(f"  AUC:       {sage_auc:.6f}")
+print(f"  Precision: {sage_p:.6f}")
+print(f"  Recall:    {sage_r:.6f}")
+print(f"  F1:        {sage_f1:.6f}")
 
 # Edge-masked evaluation (35%)
 print("\n--- Edge-Masking Robustness (35% edges dropped) ---")
@@ -372,10 +389,10 @@ else:
     masked_auc = 0.0
 masked_p, masked_r, masked_f1, _ = precision_recall_fscore_support(test_y, masked_test_preds, average='binary', zero_division=0)
 
-print(f"  AUC:       {masked_auc:.4f} (Youden threshold={masked_best_threshold:.4f})")
-print(f"  Precision: {masked_p:.4f}")
-print(f"  Recall:    {masked_r:.4f}")
-print(f"  F1:        {masked_f1:.4f}")
+print(f"  AUC:       {masked_auc:.6f} (Youden threshold={masked_best_threshold:.6f})")
+print(f"  Precision: {masked_p:.6f}")
+print(f"  Recall:    {masked_r:.6f}")
+print(f"  F1:        {masked_f1:.6f}")
 
 # Save metrics
 os.makedirs('results', exist_ok=True)
