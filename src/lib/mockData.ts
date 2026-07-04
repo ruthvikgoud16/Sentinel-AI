@@ -1,17 +1,4 @@
-# Data Schema - Hackathon Edition
-
-## Sentinel AI Mock Schema & Interfaces
-
-To maximize speed and minimize setup risk, Sentinel AI uses in-memory JSON state structured according to standard TypeScript interfaces.
-
----
-
-## 1. Type Definitions
-
-### Alert Card Schema
-Represents the alert displayed in the triage feed.
-```typescript
-interface Alert {
+export interface Alert {
   id: string;
   targetAccountId: string;
   customerName: string;
@@ -22,12 +9,8 @@ interface Alert {
   description: string;
   createdAt: string;
 }
-```
 
-### Graph Schema
-Used by the graphing library (`vis-network`) to draw the money flow map.
-```typescript
-interface Node {
+export interface Node {
   id: string;
   label: string;
   type: 'victim' | 'intermediary' | 'target' | 'cash_out';
@@ -36,26 +19,22 @@ interface Node {
   ipAddress: string;
 }
 
-interface Edge {
+export interface Edge {
   id: string;
   from: string;
   to: string;
-  label: string; // Amount in USD
+  label: string;
   amount: number;
   channel: 'ZELLE' | 'ACH' | 'WIRE';
   timestamp: string;
 }
 
-interface GraphData {
+export interface GraphData {
   nodes: Node[];
   edges: Edge[];
 }
-```
 
-### Timeline Event Schema
-Lists transactions and external warnings in the activity panel.
-```typescript
-interface TimelineEvent {
+export interface TimelineEvent {
   id: string;
   timestamp: string;
   type: 'transaction' | 'cyber_tip' | 'device_swap';
@@ -63,16 +42,14 @@ interface TimelineEvent {
   description: string;
   amount?: number;
 }
-```
 
----
+export interface DemoScenario {
+  alert: Alert;
+  graph: GraphData;
+  timeline: TimelineEvent[];
+}
 
-## 2. Pre-Baked Demo Scenario (Romance Scam Ring)
-
-This is the exact JSON payload stored in `src/lib/mockData.ts` to power the dashboard:
-
-```typescript
-export const ROMANCE_SCAM_SCENARIO = {
+export const ROMANCE_SCAM_SCENARIO: DemoScenario = {
   alert: {
     id: "alert-1042",
     targetAccountId: "acc-9981",
@@ -105,4 +82,3 @@ export const ROMANCE_SCAM_SCENARIO = {
     { id: "t-5", timestamp: "2026-07-04T11:48:00Z", type: "transaction", title: "Crypto Outbound Cash-out", description: "Robert Chen wired $9,400 to CryptoExchange LLC", amount: 9400 }
   ]
 };
-```
