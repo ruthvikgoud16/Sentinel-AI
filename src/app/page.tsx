@@ -313,6 +313,51 @@ export default function Home() {
                 isFrozen={isFrozen}
                 onSelectNode={(nodeId) => setSelectedNodeId(nodeId)}
               />
+
+              {/* Entity Inspector Tooltip Card Overlay */}
+              {(() => {
+                const selectedNode = scenario.graph.nodes.find(n => n.id === selectedNodeId);
+                if (!selectedNode) return null;
+                return (
+                  <div className="absolute bottom-4 left-4 z-10 w-64 bg-slate-900/95 border border-slate-800 backdrop-blur-md p-3.5 rounded-xl shadow-2xl flex flex-col">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+                      <span className="text-[9px] font-bold text-indigo-400 font-mono uppercase tracking-wider flex items-center space-x-1">
+                        <User className="h-3 w-3" />
+                        <span>Entity Inspector</span>
+                      </span>
+                      <button 
+                        onClick={() => setSelectedNodeId(null)}
+                        className="text-slate-500 hover:text-slate-300 text-xs font-bold font-mono cursor-pointer"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <h4 className="text-xs font-bold text-slate-100">{selectedNode.label}</h4>
+                    <p className="text-[9px] text-slate-500 font-mono mt-0.5">ID: {selectedNode.id}</p>
+                    
+                    <div className="mt-2.5 space-y-1.5 text-[10px]">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Status:</span>
+                        <span className={`font-mono font-bold ${selectedNode.status === 'FROZEN' || isFrozen ? 'text-red-400 animate-pulse' : 'text-emerald-400'}`}>
+                          {isFrozen ? 'FROZEN' : selectedNode.status}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Device ID:</span>
+                        <span className="text-slate-350 font-mono">{selectedNode.deviceFingerprint}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">IP Address:</span>
+                        <span className="text-slate-350 font-mono">{selectedNode.ipAddress}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Type:</span>
+                        <span className="text-slate-300 capitalize font-mono">{selectedNode.type.replace('_', ' ')}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 

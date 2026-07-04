@@ -65,19 +65,17 @@ export default function MoneyFlowGraph({ nodes, edges, isFrozen, onSelectNode }:
             border: isFrozen ? '#f87171' : '#6366f1',
           }
         },
-        font: { color: text, size: 12, face: 'monospace' },
-        borderWidth: 2,
-        shape: 'box',
-        margin: { top: 12, bottom: 12, left: 12, right: 12 },
+        font: { color: text, size: 11, face: 'monospace' },
+        borderWidth: 3,
+        shape: 'dot',
+        size: 16,
         shadow: {
           enabled: true,
           color: border,
-          size: 10,
+          size: 12,
           x: 0,
           y: 0
-        },
-        // Store metadata
-        title: `IP: ${node.ipAddress}\nDevice: ${node.deviceFingerprint}`
+        }
       };
     });
 
@@ -121,6 +119,7 @@ export default function MoneyFlowGraph({ nodes, edges, isFrozen, onSelectNode }:
           hover: '#94a3b8'
         },
         width: isFrozen ? 3 : 2,
+        dashes: true,
         smooth: {
           type: 'cubicBezier',
           forceDirection: 'none',
