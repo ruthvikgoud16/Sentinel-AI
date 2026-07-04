@@ -76,6 +76,7 @@ export default function Home() {
     combined_ml_score: number;
   } | null>(null);
   const [isLoadingMlScore, setIsLoadingMlScore] = useState<boolean>(false);
+  const [mlLoadingStage, setMlLoadingStage] = useState<string>('');
 
   const currentAlert = scenario.alert;
   const isFrozen = frozenAlerts[selectedAlertId];
@@ -90,9 +91,20 @@ export default function Home() {
     scenario.timeline
   );
 
+  // Helper to color-code risk tiers
+  const getRiskColor = (score: number) => {
+    if (score < 40) return { text: '#166534', bg: '#f0fdf4', border: '#bbf7d0', borderTailwind: 'border-[#166534]', textTailwind: 'text-[#166534]', label: 'LOW' };
+    if (score < 75) return { text: '#b45309', bg: '#fef3c7', border: '#fde68a', borderTailwind: 'border-[#b45309]', textTailwind: 'text-[#b45309]', label: 'MEDIUM' };
+    return { text: '#991B1B', bg: '#fef2f2', border: '#fca5a5', borderTailwind: 'border-[#991B1B]', textTailwind: 'text-[#991B1B]', label: 'CRITICAL' };
+  };
+
   React.useEffect(() => {
     const fetchMlScore = async () => {
       setIsLoadingMlScore(true);
+      setMlLoadingStage("Analyzing transaction graph...");
+      await new Promise(r => setTimeout(r, 600));
+      setMlLoadingStage("Consulting GraphSAGE GNN...");
+      await new Promise(r => setTimeout(r, 600));
       try {
         const response = await fetch('/api/ml-score', {
           method: 'POST',
@@ -112,6 +124,7 @@ export default function Home() {
         console.error("Error fetching ML score:", err);
       } finally {
         setIsLoadingMlScore(false);
+        setMlLoadingStage("");
       }
     };
     fetchMlScore();
@@ -292,7 +305,7 @@ export default function Home() {
   ];
 
   return (
-    <main className="flex h-screen w-screen overflow-hidden bg-[#F4EFE6] text-[#1C1E1E] font-sans antialiased relative">
+    <main className="flex h-screen w-screen overflow-hidden bg-[#F4EFE6] text-[#1C1E1E] font-mono antialiased relative">
       {/* FinCEN Submission Success Toast (Filing resolution step) */}
       {sarSubmitted[selectedAlertId] && (
         <div className="absolute top-24 right-6 z-50 max-w-sm bg-[#FDFBF7] border-2 border-[#166534] text-[#1C1E1E] p-4 rounded shadow-lg flex items-start space-x-3 backdrop-blur-xl animate-in fade-in duration-300">
@@ -421,13 +434,22 @@ export default function Home() {
                   >
                     <div className="flex items-start justify-between mb-2">
                       <span className="text-[9px] font-mono text-[#1D4ED8] font-bold tracking-wider">{alert.id.toUpperCase()}</span>
-                      <span className={`text-[8px] px-2 py-0.5 rounded font-bold font-mono tracking-wider border ${
-                        alertFrozen 
-                          ? 'bg-[#991B1B]/15 text-[#991B1B] border-[#991B1B]/20' 
-                          : 'bg-amber-100 text-amber-800 border-amber-200'
-                      }`}>
-                        {alertFrozen ? 'FROZEN' : alert.severity}
-                      </span>
+                      {alertFrozen ? (
+                        <span className="text-[8px] px-2 py-0.5 rounded font-bold font-mono tracking-wider border bg-[#991B1B]/15 text-[#991B1B] border-[#991B1B]/20">
+                          FROZEN
+                        </span>
+                      ) : (
+                        <span 
+                          className="text-[8px] px-2 py-0.5 rounded font-bold font-mono tracking-wider border"
+                          style={{
+                            color: getRiskColor(alert.riskScore).text,
+                            backgroundColor: getRiskColor(alert.riskScore).bg,
+                            borderColor: getRiskColor(alert.riskScore).border
+                          }}
+                        >
+                          {getRiskColor(alert.riskScore).label}
+                        </span>
+                      )}
                     </div>
 
                     <h3 className="text-xs font-bold text-[#1C1E1E] font-sans">{alert.customerName}</h3>
@@ -435,7 +457,9 @@ export default function Home() {
                     
                     <div className="flex items-center justify-between text-[8px] font-mono text-[#666258] mt-3 border-t border-[#D2C9B9]/40 pt-2">
                       <span>Acc: {alert.targetAccountId}</span>
-                      <span className="font-bold text-[#991B1B]">{alert.riskScore}% RISK</span>
+                      <span className="font-bold font-mono" style={{ color: getRiskColor(alert.riskScore).text }}>
+                        {alert.riskScore}% RISK
+                      </span>
                     </div>
                   </div>
                 );
@@ -470,29 +494,48 @@ export default function Home() {
                   {/* Score 1: Rule-Based */}
                   <div className="bg-[#FDFBF7] border border-[#D2C9B9] rounded p-4 flex flex-col items-center justify-center text-center shadow-sm min-w-[130px]">
                     <span className="text-[8px] font-bold text-[#666258] font-mono uppercase tracking-wider">Rule-Based Score</span>
-                    <span className="text-3xl font-extrabold text-[#1D4ED8] mt-2 font-mono">{detectionResult.riskScore}%</span>
+                    <span className={`text-3xl font-extrabold mt-2 font-mono ${getRiskColor(detectionResult.riskScore).textTailwind}`}>
+                      {detectionResult.riskScore}%
+                    </span>
                     <span className="text-[7px] text-[#666258] font-mono mt-1 uppercase">Ledger Telemetry</span>
                   </div>
 
                   {/* Score 2: ML Model Stamped slanted */}
-                  <div className="bg-[#FDFBF7] border-2 border-dashed border-[#991B1B] text-[#991B1B] rounded p-4 flex flex-col items-center justify-center text-center shadow-sm min-w-[160px] relative overflow-hidden transform -rotate-2 select-none">
-                    <div className="absolute top-0 right-0 bg-[#991B1B]/10 px-1.5 py-0.5 text-[6px] font-bold rounded-bl font-mono">ML STAMP</div>
-                    <span className="text-[8px] font-bold font-mono uppercase tracking-wider">ML Model Score</span>
-                    {isLoadingMlScore ? (
-                      <div className="h-9 flex items-center justify-center mt-2">
-                        <div className="h-4 w-4 rounded-full border-2 border-[#991B1B] border-t-transparent animate-spin" />
+                  {(() => {
+                    const mlScore = mlScoreData ? mlScoreData.combined_ml_score : detectionResult.riskScore;
+                    const mlColor = getRiskColor(mlScore);
+                    return (
+                      <div 
+                        className={`bg-[#FDFBF7] border-2 border-dashed rounded p-4 flex flex-col items-center justify-center text-center shadow-sm min-w-[160px] relative overflow-hidden transform -rotate-2 select-none`}
+                        style={{ borderColor: mlColor.text, color: mlColor.text }}
+                      >
+                        <div 
+                          className="absolute top-0 right-0 px-1.5 py-0.5 text-[6px] font-bold rounded-bl font-mono"
+                          style={{ backgroundColor: mlColor.text + '22', color: mlColor.text }}
+                        >
+                          ML STAMP
+                        </div>
+                        <span className="text-[8px] font-bold font-mono uppercase tracking-wider">ML Model Score</span>
+                        {isLoadingMlScore ? (
+                          <div className="h-10 flex flex-col items-center justify-center mt-1.5 space-y-1">
+                            <div className="h-3.5 w-3.5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: mlColor.text }} />
+                            <span className="text-[7px] font-mono tracking-tight animate-pulse" style={{ color: mlColor.text }}>
+                              {mlLoadingStage}
+                            </span>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="text-3xl font-extrabold mt-1 font-mono">
+                              {mlScore}%
+                            </span>
+                            <span className="text-[7px] font-mono mt-1 uppercase tracking-tight font-bold">
+                              GraphSAGE GNN
+                            </span>
+                          </>
+                        )}
                       </div>
-                    ) : (
-                      <>
-                        <span className="text-3xl font-extrabold mt-1 font-mono">
-                          {mlScoreData ? mlScoreData.combined_ml_score : detectionResult.riskScore}%
-                        </span>
-                        <span className="text-[7px] font-mono mt-1 uppercase tracking-tight font-bold">
-                          GraphSAGE + IF
-                        </span>
-                      </>
-                    )}
-                  </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -893,9 +936,16 @@ export default function Home() {
               <div className="w-full bg-white border-2 border-[#1C1E1E] p-8 rounded shadow-md flex flex-col space-y-6 font-mono text-xs text-[#1C1E1E] relative">
                 
                 {/* Large tilted Stamp overlays when frozen */}
-                {isFrozen && (
+                {isFrozen && !sarSubmitted[selectedAlertId] && (
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-12 border-4 border-dashed border-[#991B1B] px-8 py-3 text-4xl font-extrabold text-[#991B1B] opacity-25 font-mono select-none pointer-events-none uppercase tracking-widest z-10">
                     ISOLATED / SECURED
+                  </div>
+                )}
+
+                {/* Large tilted Stamp overlay when submitted/filed */}
+                {sarSubmitted[selectedAlertId] && (
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-12 border-4 border-double border-[#166534] bg-white/95 px-10 py-5 text-4xl font-black text-[#166534] shadow-xl font-mono select-none pointer-events-none uppercase tracking-widest z-20 animate-in zoom-in-50 duration-300">
+                    SUBMITTED / FILED
                   </div>
                 )}
 

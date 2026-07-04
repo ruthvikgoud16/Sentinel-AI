@@ -42,8 +42,8 @@ export default function MoneyFlowGraph({ nodes, edges, isFrozen, onSelectNode }:
             border = '#14532d';
             break;
           case 'intermediary':
-            bg = '#a16207'; // Sepia Amber
-            border = '#713f12';
+            bg = '#d97706'; // Brighter Amber
+            border = '#78350f';
             break;
           case 'target':
             bg = '#991b1b'; // Stamp Red
@@ -56,9 +56,18 @@ export default function MoneyFlowGraph({ nodes, edges, isFrozen, onSelectNode }:
         }
       }
 
+      let roleLabel = '';
+      switch (node.type) {
+        case 'victim': roleLabel = 'VICTIM'; break;
+        case 'intermediary': roleLabel = 'MULE INT'; break;
+        case 'target': roleLabel = 'MULE HUB'; break;
+        case 'cash_out': roleLabel = 'CASH OUT'; break;
+      }
+      const nodeLabel = `${node.label}\n[${roleLabel}]\n(${node.id})`;
+
       return {
         id: node.id,
-        label: `${node.label}\n(${node.id})`,
+        label: nodeLabel,
         color: {
           background: bg,
           border: border,
