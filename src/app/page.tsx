@@ -407,13 +407,16 @@ export default function Home() {
               <span className="text-[10px] text-slate-400 font-mono">{scenario.timeline.length} events correlated</span>
             </div>
             
-            <div className="flex-1 overflow-x-auto p-4 flex items-stretch space-x-4">
+            <div className="flex-1 overflow-x-auto p-4 relative flex items-stretch space-x-4">
+              {/* Timeline Connector Line Background */}
+              <div className="absolute top-1/2 left-6 right-6 h-0.5 bg-slate-800 -translate-y-1/2 pointer-events-none z-0" />
+              
               {scenario.timeline.map((event) => {
                 let icon = <Activity className="h-4 w-4 text-slate-400" />;
                 let borderTheme = 'border-slate-800 bg-slate-900/10';
                 
                 if (event.type === 'transaction') {
-                  icon = <TrendingUp className="h-4 w-4 text-indigo-450" />;
+                  icon = <TrendingUp className="h-4 w-4 text-indigo-455" />;
                   borderTheme = 'border-indigo-500/10 bg-indigo-500/5';
                 } else if (event.type === 'device_swap') {
                   icon = <Smartphone className="h-4 w-4 text-amber-555" />;
@@ -424,7 +427,7 @@ export default function Home() {
                 }
 
                 return (
-                  <div key={event.id} className={`w-72 flex-shrink-0 p-3 rounded-xl border flex flex-col justify-between ${borderTheme}`}>
+                  <div key={event.id} className={`w-72 flex-shrink-0 p-3 rounded-xl border flex flex-col justify-between z-10 backdrop-blur-sm ${borderTheme}`}>
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center space-x-2">
