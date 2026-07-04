@@ -75,8 +75,8 @@ This task board outlines the bare minimum steps required to build Sentinel AI fo
 - [x] Quick Prompt Suggestion Chips: Add clickable prompt buttons below the chat input box (e.g., "Analyze Layering", "Draft SAR"). `[Est: 10 min]`
 - [ ] Timeline Connection Line: Style a background connection line behind the timeline cards. `[Est: 15 min]`
 - [x] Live Mitigation Timeline Log: Dynamically insert a "Mitigation Executed" event card to the timeline on Freeze action. `[Est: 10 min]`
-- [ ] Canvas Metrics Overlay: Overlay top graph stats (e.g., "Velocity: 180s", "Shared Devices: 1") on the graph canvas. `[Est: 10 min]`
-- [ ] Alert Queue Pulse: Add a glowing red indicator ring around the suspect card in the alert sidebar. `[Est: 10 min]`
+- [x] Canvas Metrics Overlay: Overlay top graph stats (e.g., "Velocity: 180s", "Shared Devices: 1") on the graph canvas. `[Est: 10 min]`
+- [x] Alert Queue Pulse: Add a glowing red indicator ring around the suspect card in the alert sidebar. `[Est: 10 min]`
 - [ ] Glassmorphism Container styling: Apply refined backdrop-blur styles to the dashboard containers. `[Est: 15 min]`
 
 ---

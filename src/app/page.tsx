@@ -179,7 +179,15 @@ export default function Home() {
                   {isFrozen ? 'RESOLVED: FROZEN' : 'CRITICAL'}
                 </span>
               </div>
-              <h3 className="text-sm font-semibold text-slate-200 mb-1">{currentAlert.customerName}</h3>
+              <h3 className="text-sm font-semibold text-slate-200 mb-1 flex items-center justify-between">
+                <span>{currentAlert.customerName}</span>
+                {!isFrozen && (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                  </span>
+                )}
+              </h3>
               <p className="text-xs text-slate-400 line-clamp-2 mb-3">{currentAlert.description}</p>
               
               <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5">
@@ -373,6 +381,22 @@ export default function Home() {
                   </div>
                 );
               })()}
+
+              {/* Floating Analytics Metrics Banner */}
+              <div className="absolute bottom-4 right-4 z-10 flex items-center space-x-2 bg-slate-900/90 border border-slate-800 backdrop-blur-md px-3 py-2 rounded-lg shadow-xl text-[10px] font-mono text-slate-350">
+                <div className="flex items-center space-x-1 border-r border-slate-800 pr-2">
+                  <span className="text-slate-500">HOPS:</span>
+                  <span className="text-indigo-400 font-bold">3 Layer Steps</span>
+                </div>
+                <div className="flex items-center space-x-1 border-r border-slate-800 px-2">
+                  <span className="text-slate-500">DEVICES:</span>
+                  <span className="text-amber-450 font-bold">1 Collision</span>
+                </div>
+                <div className="flex items-center space-x-1 px-2">
+                  <span className="text-slate-500">VELOCITY:</span>
+                  <span className="text-rose-450 font-bold">3m Layering</span>
+                </div>
+              </div>
             </div>
           </div>
 
