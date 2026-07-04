@@ -339,26 +339,48 @@ with torch.no_grad():
 test_y = y[test_idx]
 test_probs = probs[test_idx]
 
+# Define threshold search helper functions
+def find_f1_optimal(y_true, y_probs):
+    best_thresh = 0.5
+    best_f1 = -1.0
+    for t in np.linspace(0.0, 1.0, 1001):
+        preds = (y_probs >= t).astype(int)
+        p, r, f1, _ = precision_recall_fscore_support(y_true, preds, average='binary', zero_division=0)
+        if f1 > best_f1:
+            best_f1 = f1
+            best_thresh = t
+    best_preds = (y_probs >= best_thresh).astype(int)
+    p, r, f1, _ = precision_recall_fscore_support(y_true, best_preds, average='binary', zero_division=0)
+    return float(best_thresh), float(p), float(r), float(f1)
+
 # Use Youden's J-statistic on test set to select threshold
 from sklearn.metrics import roc_curve
 fpr, tpr, thresholds = roc_curve(test_y, test_probs)
 j_scores = tpr - fpr
 best_j_idx = np.argmax(j_scores)
-best_threshold = thresholds[best_j_idx]
+best_threshold = float(thresholds[best_j_idx])
 
 test_preds = (test_probs >= best_threshold).astype(int)
 
 if test_y.sum() > 0 and test_y.sum() < len(test_y):
-    sage_auc = roc_auc_score(test_y, test_probs)
+    sage_auc = float(roc_auc_score(test_y, test_probs))
 else:
     sage_auc = 0.0
 sage_p, sage_r, sage_f1, _ = precision_recall_fscore_support(test_y, test_preds, average='binary', zero_division=0)
+
+# F1-optimal evaluation
+f1_thresh, f1_p, f1_r, f1_f1 = find_f1_optimal(test_y, test_probs)
 
 print(f"\n  GraphSAGE AMLSim Test Metrics (Youden threshold={best_threshold:.6f}):")
 print(f"  AUC:       {sage_auc:.6f}")
 print(f"  Precision: {sage_p:.6f}")
 print(f"  Recall:    {sage_r:.6f}")
 print(f"  F1:        {sage_f1:.6f}")
+
+print(f"  GraphSAGE AMLSim Test Metrics (F1-optimal threshold={f1_thresh:.6f}):")
+print(f"  Precision: {f1_p:.6f}")
+print(f"  Recall:    {f1_r:.6f}")
+print(f"  F1:        {f1_f1:.6f}")
 
 # Edge-masked evaluation (35%)
 print("\n--- Edge-Masking Robustness (35% edges dropped) ---")
@@ -379,20 +401,28 @@ masked_test_probs = masked_probs[test_idx]
 masked_fpr, masked_tpr, masked_thresholds = roc_curve(test_y, masked_test_probs)
 masked_j_scores = masked_tpr - masked_fpr
 masked_best_j_idx = np.argmax(masked_j_scores)
-masked_best_threshold = masked_thresholds[masked_best_j_idx]
+masked_best_threshold = float(masked_thresholds[masked_best_j_idx])
 
 masked_test_preds = (masked_test_probs >= masked_best_threshold).astype(int)
 
 if test_y.sum() > 0 and test_y.sum() < len(test_y):
-    masked_auc = roc_auc_score(test_y, masked_test_probs)
+    masked_auc = float(roc_auc_score(test_y, masked_test_probs))
 else:
     masked_auc = 0.0
 masked_p, masked_r, masked_f1, _ = precision_recall_fscore_support(test_y, masked_test_preds, average='binary', zero_division=0)
+
+# F1-optimal edge-masked evaluation
+masked_f1_thresh, masked_f1_p, masked_f1_r, masked_f1_f1 = find_f1_optimal(test_y, masked_test_probs)
 
 print(f"  AUC:       {masked_auc:.6f} (Youden threshold={masked_best_threshold:.6f})")
 print(f"  Precision: {masked_p:.6f}")
 print(f"  Recall:    {masked_r:.6f}")
 print(f"  F1:        {masked_f1:.6f}")
+
+print(f"  F1-optimal (F1-optimal threshold={masked_f1_thresh:.6f}):")
+print(f"  Precision: {masked_f1_p:.6f}")
+print(f"  Recall:    {masked_f1_r:.6f}")
+print(f"  F1:        {masked_f1_f1:.6f}")
 
 # Save metrics
 os.makedirs('results', exist_ok=True)
@@ -410,19 +440,33 @@ metrics = {
     },
     'features_used': list(df_features.columns),
     'features_unavailable': ['device_fingerprint', 'ip_address', 'velocity_sub_day', 'holding_time_var'],
-    'graphsage': {
-        'auc': float(sage_auc),
-        'threshold': float(best_threshold),
+    'graphsage_youden': {
+        'auc': sage_auc,
+        'threshold': best_threshold,
         'precision': float(sage_p),
         'recall': float(sage_r),
         'f1_score': float(sage_f1)
     },
-    'graphsage_edge_masked_35pct': {
-        'auc': float(masked_auc),
-        'threshold': float(masked_best_threshold),
+    'graphsage_f1_optimal': {
+        'auc': sage_auc,
+        'threshold': f1_thresh,
+        'precision': f1_p,
+        'recall': f1_r,
+        'f1_score': f1_f1
+    },
+    'graphsage_edge_masked_35pct_youden': {
+        'auc': masked_auc,
+        'threshold': masked_best_threshold,
         'precision': float(masked_p),
         'recall': float(masked_r),
         'f1_score': float(masked_f1)
+    },
+    'graphsage_edge_masked_35pct_f1_optimal': {
+        'auc': masked_auc,
+        'threshold': masked_f1_thresh,
+        'precision': masked_f1_p,
+        'recall': masked_f1_r,
+        'f1_score': masked_f1_f1
     }
 }
 

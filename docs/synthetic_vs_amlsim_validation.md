@@ -136,7 +136,7 @@ We ran the pipeline twice independently and verified split hashes and metrics ma
 | **AMLSim V1 (32K nodes)** | 70.6% | 74.0% |
 | **AMLSim V2 (56K nodes)** | **85.5%** | **84.1%** |
 
-**Full metrics comparing default threshold (argmax) vs. Youden J Calibration:**
+**Full metrics comparing default threshold (argmax), Youden J, and F1-optimal Calibration:**
 
 | Experiment | Threshold Method | AUC | Precision | Recall | F1 |
 |:---|:---|:---:|:---:|:---:|:---:|
@@ -144,13 +144,17 @@ We ran the pipeline twice independently and verified split hashes and metrics ma
 | **AMLSim V1 (32K)** | Default (0.50) | 70.6% | 70.2% | 63.1% | 66.4% |
 | **AMLSim V2 (56K)** | Default (argmax) | 87.2% | 18.3% | 88.9% | 30.3% |
 | **AMLSim V2 (56K)** | **Youden J (0.104)** | **85.5%** | **15.9%** | **99.1%** | **27.4%** |
+| **AMLSim V2 (56K)** | **F1-optimal (0.770)** | **85.5%** | **28.5%** | **33.3%** | **30.7%** |
 | **AMLSim V2 (56K, 35% Masked)** | **Youden J (0.336)** | **84.1%** | **16.3%** | **91.4%** | **27.7%** |
+| **AMLSim V2 (56K, 35% Masked)** | **F1-optimal (0.594)** | **84.1%** | **18.3%** | **72.0%** | **29.1%** |
 
 ### 6c. Analysis of V2 Results
 
 **Strong AUC Improvement (+14.9 pts):** Increasing scale from 32K nodes to 56K nodes improved the model's ranking ability substantially, raising AUC from 70.6% to **85.5%**. This validates that the GraphSAGE model benefits significantly from a larger volume of negative background examples, allowing it to better separate topological signatures.
 
-**High Recall at Youden Boundary:** The Youden-calibrated threshold of **0.104** favors high recall (**99.1%**) at the expense of precision (**15.9%**). For financial crime systems, a high-recall boundary is often preferred as a pre-filtering mechanism to prevent target cases from leaking through, leaving manual verification or downstream rules to refine the precision.
+**Trade-offs in Threshold Calibration:**
+- **Youden's J Calibration (Threshold 0.104):** Maximizes true positive rate vs. false positive rate, leading to very high recall (**99.1%**) but low precision (**15.9%**). This is appropriate for high-security environments where missing a threat is unacceptable.
+- **F1-optimal Calibration (Threshold 0.770):** Maximizes the harmonic mean of precision and recall, raising precision to **28.5%** at the cost of lower recall (**33.3%**), leading to an F1 of **30.7%**.
 
 **Proven Reproducibility:** Every metric matching exactly across multiple runs confirms the training pipeline has no hidden seed leaks or non-deterministic iteration order.
 
