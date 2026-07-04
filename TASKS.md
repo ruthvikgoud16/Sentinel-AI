@@ -45,14 +45,14 @@ This task board outlines the bare minimum steps required to build Sentinel AI fo
 
 ---
 
-## Phase 5: Copilot Drawer & Actions `[ ]`
-- [ ] Build the AI interaction workspace:
-  - [ ] One-click action buttons: "Analyze Case" and "Draft SAR".
-  - [ ] Integrate text chat field that triggers the `/api/chat` endpoint and updates the message feed.
-  - [ ] Show a pulsing shimmery loader when waiting for Gemini.
-- [ ] Wire up resolution action:
-  - [ ] Add "Freeze Account & Network" button in the Action Center.
-  - [ ] When clicked, toggle a React state (`isFrozen = true`), changing node status colors to solid crimson, updating the alert status to "RESOLVED: FROZEN", and showing a success toast.
+## Phase 5: Copilot Drawer & Actions `[x]`
+- [x] Build the AI interaction workspace:
+  - [x] One-click action buttons: "Analyze Case" and "Draft SAR".
+  - [x] Integrate text chat field that triggers the `/api/chat` endpoint and updates the message feed.
+  - [x] Show a pulsing shimmery loader when waiting for Gemini.
+- [x] Wire up resolution action:
+  - [x] Add "Freeze Account & Network" button in the Action Center.
+  - [x] When clicked, toggle a React state (`isFrozen = true`), changing node status colors to solid crimson, updating the alert status to "RESOLVED: FROZEN", and showing a success toast.
 
 ---
 

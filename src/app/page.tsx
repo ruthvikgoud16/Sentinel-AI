@@ -35,6 +35,45 @@ export default function Home() {
   // Simple resolution freeze trigger
   const handleFreeze = () => {
     setIsFrozen(true);
+    // Automatically document in chat
+    const updatedHistory = [...chatMessages, { role: 'user' as const, content: "Trigger mitigation freeze." }, { role: 'model' as const, content: "### Mitigation Executed\n- **Target Account (Robert Chen):** Frozen\n- **Flag Status:** Reported to NCIB database\n- **Graph Visuals:** Suspended entities highlighted in crimson." }];
+    setChatMessages(updatedHistory);
+  };
+
+  const callChatApi = async (userPrompt: string) => {
+    if (!userPrompt.trim()) return;
+    setIsAnalyzing(true);
+    
+    const updatedHistory = [...chatMessages, { role: 'user' as const, content: userPrompt }];
+    setChatMessages(updatedHistory);
+    setChatInput('');
+
+    try {
+      const context = {
+        targetAccount: `${scenario.alert.customerName} (acc-${scenario.alert.targetAccountId})`,
+        graphNodes: scenario.graph.nodes.map(n => ({ id: n.id, label: n.label, type: n.type, ip: n.ipAddress, device: n.deviceFingerprint })),
+        timelineEvents: scenario.timeline.map(t => `${t.timestamp}: ${t.title} - ${t.description}`)
+      };
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt: userPrompt,
+          context: context
+        })
+      });
+
+      const data = await response.json();
+      setChatMessages([...updatedHistory, { role: 'model', content: data.response || "No response received." }]);
+    } catch (err: any) {
+      console.error(err);
+      setChatMessages([...updatedHistory, { role: 'model', content: `Error communicating with Gemini: ${err.message || err}` }]);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
@@ -150,6 +189,20 @@ export default function Home() {
         {/* WORKSPACE MIDDLE: Graph Workspace & Timeline */}
         <div className="flex-1 h-full flex flex-col bg-slate-950/20">
           
+          {isFrozen && (
+            <div className="bg-red-500/10 border-b border-red-500/20 px-6 py-2 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Lock className="h-4 w-4 text-red-500" />
+                <span className="text-[11px] font-semibold text-red-400 font-mono">MITIGATION ACTIVE: Account frozen & reported to law enforcement database.</span>
+              </div>
+              <button 
+                onClick={() => setIsFrozen(false)}
+                className="text-[10px] text-red-400 hover:text-red-300 font-bold underline font-mono cursor-pointer"
+              >
+                RESET
+              </button>
+            </div>
+          )}
           {/* Main Triage Workspace Header */}
           <div className="h-14 border-b border-slate-800 bg-slate-900/20 flex items-center justify-between px-6">
             <div className="flex items-center space-x-3">
@@ -264,45 +317,98 @@ export default function Home() {
           </div>
 
           {/* Chat / Analysis panel */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col items-center justify-center">
-            {/* Visual Call to Action */}
-            <div className="text-center p-6 bg-slate-900/20 border border-slate-800/60 rounded-xl max-w-xs">
-              <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-3">
-                <Cpu className="h-6 w-6 text-indigo-400" />
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col">
+            {chatMessages.length === 0 && !isAnalyzing ? (
+              // Initial State: Visual Call to Action & Quick Prompts
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
+                <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mb-3">
+                  <Cpu className="h-6 w-6 text-indigo-400" />
+                </div>
+                <h3 className="text-xs font-bold text-slate-200 uppercase font-mono tracking-wider mb-1">Instant Risk Explanation</h3>
+                <p className="text-xs text-slate-400 mb-6">Request Gemini to analyze the transaction flow, find device sharing anomalies, and draft Suspicious Activity Reports.</p>
+                
+                <div className="flex flex-col space-y-2 w-full max-w-xs">
+                  <button 
+                    className="w-full text-xs font-semibold py-2.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center space-x-2 transition-colors cursor-pointer border border-indigo-500/25"
+                    onClick={() => callChatApi("Analyze this critical alert and highlight the main risk factors.")}
+                  >
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    <span>Analyze Alert with Gemini</span>
+                  </button>
+                  
+                  <button 
+                    className="w-full text-xs font-semibold py-2.5 px-3 rounded-lg bg-slate-850 hover:bg-slate-800 text-slate-250 flex items-center justify-center space-x-2 transition-colors cursor-pointer border border-slate-700/50"
+                    onClick={() => callChatApi("Draft a formal regulatory Suspicious Activity Report (SAR) narrative for this transaction ring.")}
+                  >
+                    <Shield className="h-3.5 w-3.5" />
+                    <span>Draft SAR Narrative</span>
+                  </button>
+                </div>
               </div>
-              <h3 className="text-xs font-bold text-slate-200 uppercase font-mono tracking-wider mb-1">Instant Risk Explanation</h3>
-              <p className="text-xs text-slate-400 mb-4">Request Gemini to analyze the transaction flow, find device sharing anomalies, and draft Suspicious Activity Reports.</p>
-              
-              <div className="flex flex-col space-y-2">
-                <button 
-                  className="w-full text-xs font-semibold py-2 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center space-x-2 transition-colors cursor-pointer"
-                  onClick={() => setIsAnalyzing(true)}
-                  disabled={isAnalyzing}
-                >
-                  <TrendingUp className="h-3.5 w-3.5" />
-                  <span>Analyze Alert with Gemini</span>
-                </button>
+            ) : (
+              // Active Conversation Feed
+              <div className="space-y-4 flex-1">
+                {chatMessages.map((msg, index) => (
+                  <div 
+                    key={index} 
+                    className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
+                  >
+                    <span className="text-[9px] font-mono text-slate-500 mb-1 px-1">
+                      {msg.role === 'user' ? 'Investigator' : 'Gemini Copilot'}
+                    </span>
+                    <div 
+                      className={`p-3 rounded-xl max-w-[95%] text-xs font-sans whitespace-pre-wrap leading-relaxed ${
+                        msg.role === 'user' 
+                          ? 'bg-indigo-600 text-white rounded-tr-none' 
+                          : 'bg-slate-900/80 border border-slate-800 text-slate-200 rounded-tl-none'
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Shimmer loading state */}
+                {isAnalyzing && (
+                  <div className="flex flex-col items-start">
+                    <span className="text-[9px] font-mono text-slate-500 mb-1 px-1">Gemini Copilot</span>
+                    <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 rounded-tl-none w-5/6 flex flex-col space-y-2">
+                      <div className="h-3 bg-slate-800 rounded animate-pulse w-full" />
+                      <div className="h-3 bg-slate-800 rounded animate-pulse w-5/6" />
+                      <div className="h-3 bg-slate-800 rounded animate-pulse w-4/6" />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
           </div>
 
           {/* Prompt / Input bar */}
-          <div className="p-4 border-t border-slate-800 bg-slate-950/40">
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              callChatApi(chatInput);
+            }}
+            className="p-4 border-t border-slate-800 bg-slate-950/40"
+          >
             <div className="flex space-x-2">
               <input 
                 type="text" 
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
                 placeholder="Ask Gemini about this network..." 
                 className="flex-1 text-xs px-3 py-2.5 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
-                disabled
+                disabled={isAnalyzing}
               />
               <button 
-                className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 disabled:opacity-50"
-                disabled
+                type="submit"
+                className="px-4 py-2 rounded-lg bg-indigo-650 hover:bg-indigo-600 text-white text-xs font-semibold disabled:opacity-50 transition-colors"
+                disabled={isAnalyzing || !chatInput.trim()}
               >
                 Send
               </button>
             </div>
-          </div>
+          </form>
 
         </div>
 
