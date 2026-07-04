@@ -64,3 +64,17 @@ This task board outlines the bare minimum steps required to build Sentinel AI fo
   - [x] Click "Analyze Case" -> Copilot explains layering & shared devices.
   - [x] Click "Draft SAR" -> Copilot drafts narrative text.
   - [x] Click "Freeze Account" -> Nodes turn red.
+
+---
+
+## Phase 7: Demo Visual Polish (P0) `[ ]`
+- [ ] Node Visual Styling: Upgrade `vis-network` nodes to use circular avatars and custom neon shadows representing roles (Victim=Green, Mule=Orange, Target=Red). `[Est: 15 min]`
+- [ ] Animated Edge Flows: Add animated dashing to transaction edges to visually direct the money flow. `[Est: 10 min]`
+- [ ] Custom Info Inspector: Create an HTML absolute-positioned card that displays node metadata on selection (replacing plain browser tooltips). `[Est: 20 min]`
+- [ ] Rich Markdown Response Styles: Style Gemini markdown output to render warning/alert boxes and risk metrics. `[Est: 15 min]`
+- [ ] Quick Prompt Suggestion Chips: Add clickable prompt buttons below the chat input box (e.g., "Analyze Layering", "Draft SAR"). `[Est: 10 min]`
+- [ ] Timeline Connection Line: Style a background connection line behind the timeline cards. `[Est: 15 min]`
+- [ ] Live Mitigation Timeline Log: Dynamically insert a "Mitigation Executed" event card to the timeline on Freeze action. `[Est: 10 min]`
+- [ ] Canvas Metrics Overlay: Overlay top graph stats (e.g., "Velocity: 180s", "Shared Devices: 1") on the graph canvas. `[Est: 10 min]`
+- [ ] Alert Queue Pulse: Add a glowing red indicator ring around the suspect card in the alert sidebar. `[Est: 10 min]`
+- [ ] Glassmorphism Container styling: Apply refined backdrop-blur styles to the dashboard containers. `[Est: 15 min]`
