@@ -54,6 +54,20 @@ export default function Home() {
     // Automatically document in chat
     const updatedHistory = [...chatMessages, { role: 'user' as const, content: "Trigger mitigation freeze." }, { role: 'model' as const, content: "### Mitigation Executed\n- **Target Account (Robert Chen):** Frozen\n- **Flag Status:** Reported to NCIB database\n- **Graph Visuals:** Suspended entities highlighted in crimson." }];
     setChatMessages(updatedHistory);
+
+    // Dynamically inject Mitigation event card into the timeline ledger
+    const freezeEvent = {
+      id: "t-6",
+      timestamp: new Date().toISOString(),
+      type: 'cyber_tip' as const,
+      title: "Mitigation Active: Account Frozen",
+      description: "Compliance action executed by investigator. Suspect nodes isolated and reported to law enforcement."
+    };
+    
+    setScenario(prev => ({
+      ...prev,
+      timeline: [...prev.timeline, freezeEvent]
+    }));
   };
 
   const callChatApi = async (userPrompt: string) => {
@@ -194,6 +208,7 @@ export default function Home() {
               onClick={() => {
                 setIsFrozen(false);
                 setChatMessages([]);
+                setScenario(ROMANCE_SCAM_SCENARIO);
               }}
             >
               <Database className="h-3.5 w-3.5" />
@@ -495,8 +510,36 @@ export default function Home() {
               e.preventDefault();
               callChatApi(chatInput);
             }}
-            className="p-4 border-t border-slate-800 bg-slate-950/40"
+            className="p-4 border-t border-slate-800 bg-slate-950/40 flex flex-col space-y-3"
           >
+            {/* Quick Prompt Chips */}
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => callChatApi("Analyze this critical alert and highlight the main risk factors.")}
+                className="text-[9px] px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                disabled={isAnalyzing}
+              >
+                🔍 Analyze Risk
+              </button>
+              <button
+                type="button"
+                onClick={() => callChatApi("Identify shared device fingerprints and cross-channel overlays.")}
+                className="text-[9px] px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                disabled={isAnalyzing}
+              >
+                📱 Check Devices
+              </button>
+              <button
+                type="button"
+                onClick={() => callChatApi("Draft a formal regulatory Suspicious Activity Report (SAR) narrative for this transaction ring.")}
+                className="text-[9px] px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-350 hover:bg-slate-800 transition-colors cursor-pointer"
+                disabled={isAnalyzing}
+              >
+                ✍️ Draft SAR
+              </button>
+            </div>
+
             <div className="flex space-x-2">
               <input 
                 type="text" 
