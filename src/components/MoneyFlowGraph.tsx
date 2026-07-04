@@ -188,6 +188,27 @@ export default function MoneyFlowGraph({ nodes, edges, isFrozen, onSelectNode }:
       onSelectNode(null);
     });
 
+    // Add node hover lift effect
+    network.on('hoverNode', (params) => {
+      const net = network as any;
+      if (net.body.nodes[params.node]) {
+        net.body.nodes[params.node].setOptions({ 
+          shadow: { size: 12, color: 'rgba(28, 30, 30, 0.3)', y: 4, x: 0 },
+          size: 16 
+        });
+      }
+    });
+
+    network.on('blurNode', (params) => {
+      const net = network as any;
+      if (net.body.nodes[params.node]) {
+        net.body.nodes[params.node].setOptions({ 
+          shadow: { size: 6, color: 'rgba(28, 30, 30, 0.15)', y: 2, x: 2 },
+          size: 15 
+        });
+      }
+    });
+
     // Clean up
     return () => {
       if (networkRef.current) {

@@ -31,6 +31,28 @@ import MoneyFlowGraph from '@/components/MoneyFlowGraph';
 import { runDetectionEngine } from '@/lib/detectionEngine';
 import { Button } from '@/components/ui/button';
 
+const CountUp = ({ end, duration = 800, suffix = "" }: { end: number, duration?: number, suffix?: string }) => {
+  const [count, setCount] = useState(0);
+  React.useEffect(() => {
+    let startTimestamp: number | null = null;
+    let animationFrame: number;
+    const step = (timestamp: number) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.floor(easeProgress * end));
+      if (progress < 1) {
+        animationFrame = window.requestAnimationFrame(step);
+      } else {
+        setCount(end);
+      }
+    };
+    animationFrame = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [end, duration]);
+  return <>{count}{suffix}</>;
+};
+
 export default function Home() {
   // Stepper State (DEMO MODE REDESIGN)
   const [activeStep, setActiveStep] = useState<number>(1);
@@ -102,9 +124,9 @@ export default function Home() {
     const fetchMlScore = async () => {
       setIsLoadingMlScore(true);
       setMlLoadingStage("Analyzing transaction graph...");
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 900));
       setMlLoadingStage("Consulting GraphSAGE GNN...");
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 900));
       try {
         const response = await fetch('/api/ml-score', {
           method: 'POST',
@@ -305,7 +327,7 @@ export default function Home() {
   ];
 
   return (
-    <main className="flex h-screen w-screen overflow-hidden bg-[#F4EFE6] text-[#1C1E1E] font-mono antialiased relative">
+    <main className="flex h-screen w-screen overflow-hidden bg-[#F4EFE6] text-[#1C1E1E] font-mono antialiased relative bg-paper-grain bg-watermark">
       {/* FinCEN Submission Success Toast (Filing resolution step) */}
       {sarSubmitted[selectedAlertId] && (
         <div className="absolute top-24 right-6 z-50 max-w-sm bg-[#FDFBF7] border-2 border-[#166534] text-[#1C1E1E] p-4 rounded shadow-lg flex items-start space-x-3 backdrop-blur-xl animate-in fade-in duration-300">
@@ -330,7 +352,12 @@ export default function Home() {
             <Shield className="h-5 w-5" />
           </div>
           <div>
-            <span className="font-bold tracking-tight text-xs text-[#1C1E1E] uppercase font-mono">SENTINEL FORENSIC AUDIT</span>
+            <div className="flex items-center space-x-3">
+              <span className="font-bold tracking-tight text-xs text-[#1C1E1E] uppercase font-mono">SENTINEL FORENSIC AUDIT</span>
+              <a href="/showcase" className="text-[7px] bg-[#E8E2D5] text-[#666258] hover:bg-[#D2C9B9] hover:text-[#1C1E1E] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider transition-colors border border-[#D2C9B9]">
+                Model Validation
+              </a>
+            </div>
             <p className="text-[8px] text-[#666258] tracking-widest uppercase">CASE DOSSIER: SC-{currentAlert.targetAccountId}</p>
           </div>
         </div>
@@ -478,7 +505,7 @@ export default function Home() {
           {/* STEP 1: SIGNAL DETECTION INGEST BOARD */}
           {activeStep === 1 && (
             <div className="flex-1 p-6 flex flex-col justify-center items-center max-w-4xl mx-auto w-full space-y-6 overflow-y-auto animate-in fade-in duration-300">
-              <div className="w-full bg-[#FDFBF7] border border-[#D2C9B9] shadow-sm rounded p-6 flex flex-col md:flex-row items-center justify-between gap-6 relative">
+              <div className="w-full bg-[#FDFBF7] border border-[#D2C9B9] shadow-sm rounded p-6 flex flex-col md:flex-row items-center justify-between gap-6 relative bg-paper-grain hover:-translate-y-[2px] transition-all duration-300 hover:shadow-md cursor-default">
                 <div className="space-y-2">
                   <span className="text-[9px] font-bold text-[#1D4ED8] font-mono uppercase tracking-widest">[ EVIDENCE DOSSIER INTAKE ]</span>
                   <h2 className="text-xl font-bold text-[#1C1E1E] font-mono">{currentAlert.customerName}</h2>
@@ -486,7 +513,7 @@ export default function Home() {
                   <div className="flex items-center space-x-3 text-[9px] font-mono text-[#666258] mt-4">
                     <span>RECORD ID: acc-{currentAlert.targetAccountId}</span>
                     <span>•</span>
-                    <span>LOAD DATE: {new Date(currentAlert.createdAt).toLocaleDateString()}</span>
+                    <span suppressHydrationWarning>LOAD DATE: {new Date(currentAlert.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
 
@@ -495,7 +522,7 @@ export default function Home() {
                   <div className="bg-[#FDFBF7] border border-[#D2C9B9] rounded p-4 flex flex-col items-center justify-center text-center shadow-sm min-w-[130px]">
                     <span className="text-[8px] font-bold text-[#666258] font-mono uppercase tracking-wider">Rule-Based Score</span>
                     <span className={`text-3xl font-extrabold mt-2 font-mono ${getRiskColor(detectionResult.riskScore).textTailwind}`}>
-                      {detectionResult.riskScore}%
+                      <CountUp end={detectionResult.riskScore} suffix="%" />
                     </span>
                     <span className="text-[7px] text-[#666258] font-mono mt-1 uppercase">Ledger Telemetry</span>
                   </div>
@@ -526,7 +553,7 @@ export default function Home() {
                         ) : (
                           <>
                             <span className="text-3xl font-extrabold mt-1 font-mono">
-                              {mlScore}%
+                              <CountUp end={mlScore} suffix="%" />
                             </span>
                             <span className="text-[7px] font-mono mt-1 uppercase tracking-tight font-bold">
                               GraphSAGE GNN
@@ -540,7 +567,7 @@ export default function Home() {
               </div>
 
               {/* Rules Checklist */}
-              <div className="w-full bg-[#FDFBF7] border border-[#D2C9B9] shadow-sm rounded p-6 flex flex-col">
+              <div className="w-full bg-[#FDFBF7] border border-[#D2C9B9] shadow-sm rounded p-6 flex flex-col bg-paper-grain">
                 <span className="text-xs font-bold text-[#1C1E1E] font-mono uppercase tracking-wider mb-4 flex items-center space-x-2 border-b border-[#D2C9B9] pb-2.5">
                   <Activity className="h-4 w-4 text-[#991B1B]" />
                   <span>Sentinel Forensic Rules Engine Checklist</span>
@@ -933,18 +960,18 @@ export default function Home() {
           {activeStep === 5 && (
             <div className="flex-1 p-6 overflow-y-auto max-w-4xl mx-auto w-full space-y-6 animate-in fade-in duration-300">
               
-              <div className="w-full bg-white border-2 border-[#1C1E1E] p-8 rounded shadow-md flex flex-col space-y-6 font-mono text-xs text-[#1C1E1E] relative">
+              <div className="w-full bg-white border-2 border-[#1C1E1E] p-8 rounded shadow-md flex flex-col space-y-6 font-mono text-xs text-[#1C1E1E] relative torn-edge">
                 
                 {/* Large tilted Stamp overlays when frozen */}
                 {isFrozen && !sarSubmitted[selectedAlertId] && (
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-12 border-4 border-dashed border-[#991B1B] px-8 py-3 text-4xl font-extrabold text-[#991B1B] opacity-25 font-mono select-none pointer-events-none uppercase tracking-widest z-10">
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-12 border-4 border-dashed border-[#991B1B] px-8 py-3 text-4xl font-extrabold text-[#991B1B] opacity-25 font-mono select-none pointer-events-none uppercase tracking-widest z-10 animate-stamp">
                     ISOLATED / SECURED
                   </div>
                 )}
 
                 {/* Large tilted Stamp overlay when submitted/filed */}
                 {sarSubmitted[selectedAlertId] && (
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-12 border-4 border-double border-[#166534] bg-white/95 px-10 py-5 text-4xl font-black text-[#166534] shadow-xl font-mono select-none pointer-events-none uppercase tracking-widest z-20 animate-in zoom-in-50 duration-300">
+                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-12 border-4 border-double border-[#166534] bg-white/95 px-10 py-5 text-4xl font-black text-[#166534] shadow-xl font-mono select-none pointer-events-none uppercase tracking-widest z-20 animate-stamp">
                     SUBMITTED / FILED
                   </div>
                 )}
