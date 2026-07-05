@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Shield, Mail, Lock, Eye, EyeOff, Sparkles, Cpu, ShieldAlert, ArrowRight } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -223,6 +223,11 @@ export default function LoginPage() {
               onClick={async () => {
                 setIsLoading(true);
                 setValidationError('');
+                if (!isSupabaseConfigured) {
+                  setValidationError('Supabase is not configured yet. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file or Vercel dashboard settings.');
+                  setIsLoading(false);
+                  return;
+                }
                 try {
                   const { error } = await supabase.auth.signInWithOAuth({
                     provider: 'google',
