@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Shield, User, Mail, Lock, Eye, EyeOff, Sparkles, Database, Check, ShieldCheck, ArrowRight } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -296,9 +297,24 @@ export default function SignupPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <button 
-              onClick={() => {
+              onClick={async () => {
                 setIsLoading(true);
-                setTimeout(() => { setIsLoading(false); router.push('/dashboard'); }, 1000);
+                setValidationError('');
+                try {
+                  const { error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                      redirectTo: `${window.location.origin}/dashboard`
+                    }
+                  });
+                  if (error) {
+                    setValidationError(error.message);
+                    setIsLoading(false);
+                  }
+                } catch (err: any) {
+                  setValidationError(err.message || 'Failed to initialize sign up');
+                  setIsLoading(false);
+                }
               }}
               className="flex items-center justify-center space-x-2 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-xs font-semibold cursor-pointer"
             >

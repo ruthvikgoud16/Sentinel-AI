@@ -32,6 +32,7 @@ import { SCENARIOS, ALERTS_LIST, DemoScenario, Alert, ROMANCE_SCAM_SCENARIO } fr
 import MoneyFlowGraph from '@/components/MoneyFlowGraph';
 import { runDetectionEngine } from '@/lib/detectionEngine';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabase';
 
 const CountUp = ({ end, duration = 800, suffix = "" }: { end: number, duration?: number, suffix?: string }) => {
   const [count, setCount] = useState(0);
@@ -59,6 +60,29 @@ export default function Dashboard() {
   const router = useRouter();
   // Stepper State
   const [activeStep, setActiveStep] = useState<number>(1);
+  
+  // Auth User State
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const getSessionUser = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user ?? null);
+      } catch (err) {
+        console.error('Failed to get session:', err);
+      }
+    };
+    getSessionUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   // Current Triage State
   const [selectedAlertId, setSelectedAlertId] = useState<string>("alert-1042");
@@ -588,6 +612,35 @@ export default function Dashboard() {
               <RotateCcw className="h-3.5 w-3.5" />
               <span>Reset Case</span>
             </button>
+          )}
+
+          {user && (
+            <div className="flex items-center space-x-3 ml-2 border-l border-white/10 pl-3">
+              {user.user_metadata?.avatar_url && (
+                <img 
+                  src={user.user_metadata.avatar_url} 
+                  alt="Avatar" 
+                  className="w-7 h-7 rounded-full border border-[#7C3AED]/35 object-cover"
+                />
+              )}
+              <div className="hidden lg:block text-left">
+                <p className="text-[10px] font-bold text-white leading-none">
+                  {user.user_metadata?.full_name || user.email?.split('@')[0]}
+                </p>
+                <p className="text-[8px] text-gray-400 font-mono mt-0.5 leading-none">
+                  {user.email}
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  router.push('/login');
+                }}
+                className="bg-white/5 hover:bg-white/10 text-white font-semibold text-[9px] px-2.5 py-1.5 rounded-lg border border-white/10 cursor-pointer transition-all uppercase tracking-wider"
+              >
+                Sign Out
+              </button>
+            </div>
           )}
         </div>
         
