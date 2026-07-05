@@ -32,7 +32,7 @@ import { SCENARIOS, ALERTS_LIST, DemoScenario, Alert, ROMANCE_SCAM_SCENARIO } fr
 import MoneyFlowGraph from '@/components/MoneyFlowGraph';
 import { runDetectionEngine } from '@/lib/detectionEngine';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 const CountUp = ({ end, duration = 800, suffix = "" }: { end: number, duration?: number, suffix?: string }) => {
   const [count, setCount] = useState(0);
@@ -68,7 +68,14 @@ export default function Dashboard() {
     const getSessionUser = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        setUser(session?.user ?? null);
+        if (session?.user) {
+          setUser(session.user);
+        } else {
+          const mockUserStr = localStorage.getItem('sentinel_mock_user');
+          if (mockUserStr) {
+            setUser(JSON.parse(mockUserStr));
+          }
+        }
       } catch (err) {
         console.error('Failed to get session:', err);
       }
@@ -76,7 +83,12 @@ export default function Dashboard() {
     getSessionUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      if (session?.user) {
+        setUser(session.user);
+      } else {
+        const mockUserStr = localStorage.getItem('sentinel_mock_user');
+        setUser(mockUserStr ? JSON.parse(mockUserStr) : null);
+      }
     });
 
     return () => {
@@ -633,7 +645,11 @@ export default function Dashboard() {
               </div>
               <button
                 onClick={async () => {
-                  await supabase.auth.signOut();
+                  if (isSupabaseConfigured) {
+                    await supabase.auth.signOut();
+                  }
+                  localStorage.removeItem('sentinel_mock_user');
+                  setUser(null);
                   router.push('/login');
                 }}
                 className="bg-white/5 hover:bg-white/10 text-white font-semibold text-[9px] px-2.5 py-1.5 rounded-lg border border-white/10 cursor-pointer transition-all uppercase tracking-wider"

@@ -301,8 +301,19 @@ export default function SignupPage() {
                 setIsLoading(true);
                 setValidationError('');
                 if (!isSupabaseConfigured) {
-                  setValidationError('Supabase is not configured yet. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env.local file or Vercel dashboard settings.');
-                  setIsLoading(false);
+                  const mockUser = {
+                    id: 'mock-google-user-id',
+                    email: 'investigator.vance@sentinel.ai',
+                    user_metadata: {
+                      full_name: 'Agent Vance',
+                      avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'
+                    }
+                  };
+                  localStorage.setItem('sentinel_mock_user', JSON.stringify(mockUser));
+                  setTimeout(() => {
+                    setIsLoading(false);
+                    router.push('/dashboard');
+                  }, 800);
                   return;
                 }
                 try {
