@@ -6,7 +6,7 @@
 
 **Real-time money mule detection • Gemini-powered forensic copilot • Instant SAR generation**
 
-🚀 **Live Vercel Demo:** [sentinel-ai-detect.vercel.app](https://sentinel-ai-detect.vercel.app)  
+🚀 **Live Vercel Demo:** [sentinel-ai-ruthviksolutions-projects.vercel.app](https://sentinel-ai-ruthviksolutions-projects.vercel.app) (Alternative: [sentinel-ai-blue.vercel.app](https://sentinel-ai-blue.vercel.app))  
 ⚡ **Live Replit Backend:** [956695f9-d156-4ce4-aeba-31e18e21cf66-00-1n30fcqnxnw8v.sisko.replit.dev](https://956695f9-d156-4ce4-aeba-31e18e21cf66-00-1n30fcqnxnw8v.sisko.replit.dev/)
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
